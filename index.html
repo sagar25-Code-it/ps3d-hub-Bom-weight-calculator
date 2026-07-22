@@ -1,0 +1,1717 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PS3D Hub — Part & BOM Weight Calculator</title>
+<meta name="description" content="Part weight calculator and Bill of Materials weight calculator for IS-standard materials and structural shapes, by PS3D Hub.">
+<link rel="icon" type="image/png" href="favicon.png">
+<style>
+/* ═══════════════════════════════════════════════════════════════
+   DESIGN TOKENS
+   ═══════════════════════════════════════════════════════════════ */
+:root{
+  --ink-950:#0f172a; --ink-900:#1e1b4b; --ink-800:#312e81; --ink-700:#3730a3;
+  --brand-700:#4338ca; --brand-600:#4f46e5; --brand-500:#6366f1; --brand-400:#818cf8; --brand-300:#a5b4fc; --brand-100:#e0e7ff; --brand-50:#eef2ff;
+  --violet-600:#7c3aed; --sky-500:#0ea5e9;
+  --emerald-400:#34d399; --emerald-500:#10b981; --emerald-600:#059669;
+  --amber-500:#f59e0b; --amber-600:#d97706;
+  --red-400:#f87171; --red-500:#ef4444; --red-600:#dc2626;
+  --gray-50:#f8fafc; --gray-100:#f1f5f9; --gray-200:#e2e8f0; --gray-300:#cbd5e1;
+  --gray-400:#94a3b8; --gray-500:#64748b; --gray-600:#475569; --gray-700:#334155; --gray-800:#1e293b; --gray-900:#0f172a;
+  --radius-sm:8px; --radius:12px; --radius-lg:16px; --radius-xl:20px;
+  --font-body:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --font-mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+  --ease-snap:cubic-bezier(.25,1,.5,1);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{
+  font-family:var(--font-body); background:var(--gray-50); color:var(--gray-900);
+  -webkit-font-smoothing:antialiased; line-height:1.5; min-height:100vh;
+  display:flex; flex-direction:column;
+}
+img,svg{display:block}
+button{font-family:inherit;color:inherit}
+input,select{font-family:inherit;color:inherit}
+a{color:inherit}
+.visually-hidden{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}
+
+/* ═══════════════════════════════════════════════════════════════
+   KEYFRAMES
+   ═══════════════════════════════════════════════════════════════ */
+@keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+@keyframes headerDrop{from{opacity:0;transform:translateY(-16px)}to{opacity:1;transform:translateY(0)}}
+@keyframes scaleIn{from{opacity:0;transform:scale(.93) translateY(-6px)}to{opacity:1;transform:scale(1) translateY(0)}}
+@keyframes scaleOut{from{opacity:1;transform:scale(1) translateY(0)}to{opacity:0;transform:scale(.93) translateY(-6px)}}
+@keyframes slideItem{from{opacity:0;transform:translateX(-8px)}to{opacity:1;transform:translateX(0)}}
+@keyframes gradFlow{0%,100%{background-position:0% 50%}50%{background-position:100% 50%}}
+@keyframes particleOut{0%{opacity:1;transform:translate(0,0) scale(1.5)}100%{opacity:0;transform:translate(var(--dx),var(--dy)) scale(0)}}
+@keyframes rippleOut{from{transform:scale(0);opacity:.5}to{transform:scale(5);opacity:0}}
+@keyframes weightPop{0%{opacity:0;transform:scale(.78) translateY(12px)}65%{transform:scale(1.04) translateY(-2px)}100%{opacity:1;transform:scale(1) translateY(0)}}
+@keyframes shimmer{from{background-position:-200% center}to{background-position:200% center}}
+@keyframes pulseGlow{0%,100%{box-shadow:0 0 0 0 rgba(99,102,241,.38)}55%{box-shadow:0 0 0 10px rgba(99,102,241,0)}}
+
+.anim-in{animation:fadeUp .55s var(--ease-snap) both}
+.hdr-in{animation:headerDrop .5s var(--ease-snap) both}
+.nav-in{animation:headerDrop .5s var(--ease-snap) .07s both}
+
+/* ═══════════════════════════════════════════════════════════════
+   LAYOUT
+   ═══════════════════════════════════════════════════════════════ */
+.container{max-width:1100px;margin:0 auto;padding:0 16px}
+main{flex:1;min-width:0}
+.page-shell{display:flex;justify-content:center;align-items:flex-start;gap:20px;max-width:1580px;margin:0 auto}
+.side-panel{width:230px;flex-shrink:0;display:none;position:sticky;top:20px}
+.side-panel-inner{background:#fff;border-radius:var(--radius-lg);border:1px solid var(--gray-100);box-shadow:0 1px 3px rgba(0,0,0,.05);padding:20px}
+.side-eyebrow{font-size:11px;font-weight:800;color:var(--brand-600);text-transform:uppercase;letter-spacing:.08em;margin-bottom:14px;padding-bottom:10px;border-bottom:2px solid var(--brand-50)}
+.side-list{list-style:none;display:flex;flex-direction:column;gap:14px}
+.side-list li{font-size:12.5px;line-height:1.55;color:var(--gray-600);display:flex;gap:8px}
+.side-list strong{color:var(--gray-900);font-weight:700}
+.side-dot{flex-shrink:0;width:6px;height:6px;border-radius:50%;background:linear-gradient(135deg,var(--brand-600),var(--violet-600));margin-top:5px}
+@media (min-width:1460px){.side-panel{display:block}}
+.page{padding:32px 0}
+.page-head{display:flex;align-items:center;gap:12px;margin-bottom:28px;flex-wrap:wrap}
+.page-head-icon{
+  width:44px;height:44px;border-radius:16px;flex-shrink:0;
+  background:linear-gradient(135deg,var(--brand-700),var(--violet-600));
+  display:flex;align-items:center;justify-content:center;color:#fff;
+  box-shadow:0 8px 20px -4px rgba(79,70,229,.35);
+}
+.page-head h2{font-size:24px;font-weight:900;line-height:1.2;color:var(--gray-900)}
+.page-head p{color:var(--gray-500);font-size:13.5px;margin-top:2px}
+
+/* ═══════════════════════════════════════════════════════════════
+   HEADER / NAV / FOOTER
+   ═══════════════════════════════════════════════════════════════ */
+header.site-header{background:linear-gradient(135deg,#0f172a 0%,#1e1b4b 50%,#0f172a 100%)}
+.header-inner{max-width:1100px;margin:0 auto;padding:16px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:12px}
+.brand-logo{height:44px;width:auto;flex-shrink:0;object-fit:contain}
+.brand-name{font-weight:900;color:#fff;font-size:16px;line-height:1.2}
+.brand-name span{color:var(--brand-400)}
+.brand-sub{color:var(--brand-400);font-size:11.5px;font-weight:500;line-height:1.2}
+.brand-contact{text-align:right;font-size:12px;line-height:1.7}
+.brand-contact a{color:#a5b4fc;text-decoration:none;font-weight:600}
+.brand-contact a:hover{color:#c7d2fe;text-decoration:underline}
+.brand-contact .contact-loc{color:#6366f1}
+.brand-contact .contact-loading{color:#6366f1}
+
+nav.site-nav{background:#fff;border-bottom:1px solid var(--gray-200);box-shadow:0 1px 3px rgba(0,0,0,.04);position:sticky;top:0;z-index:40}
+.nav-inner{max-width:1100px;margin:0 auto;padding:0 16px;display:flex}
+.tab-btn{
+  display:flex;align-items:center;gap:10px;padding:14px 20px;font-size:14px;font-weight:700;
+  color:var(--gray-500);background:none;border:none;cursor:pointer;position:relative;
+  transition:color .2s ease;
+}
+.tab-btn:hover{color:var(--gray-800)}
+.tab-btn.active{color:var(--brand-700)}
+.tab-btn.active::after{content:'';position:absolute;bottom:-1px;left:0;right:0;height:3px;border-radius:3px 3px 0 0;background:linear-gradient(90deg,var(--brand-700),var(--violet-600))}
+.tab-sub{font-size:11.5px;font-weight:400;opacity:.6;margin-left:6px}
+@media (max-width:560px){.tab-sub{display:none}}
+
+footer.site-footer{background:#0f172a;margin-top:48px}
+.footer-inner{max-width:1100px;margin:0 auto;padding:24px 16px}
+.footer-top{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:16px}
+.footer-top p:first-child{color:#fff;font-weight:700;font-size:14px}
+.footer-top .footer-sub{color:#64748b;font-size:12px;margin-top:2px}
+.footer-right{text-align:right}
+.footer-right p:first-child{color:var(--brand-400);font-size:12px}
+.footer-right p:last-child{color:#475569;font-size:12px;margin-top:2px}
+.footer-tags{margin-top:16px;padding-top:16px;border-top:1px solid #1e293b;display:flex;flex-wrap:wrap;gap:8px}
+.footer-tag{font-size:11px;color:#475569;padding:2px 8px;border-radius:4px;background:#1e293b;font-family:var(--font-mono)}
+
+/* ═══════════════════════════════════════════════════════════════
+   CARDS / GRID
+   ═══════════════════════════════════════════════════════════════ */
+.card{background:#fff;border-radius:var(--radius-xl);box-shadow:0 1px 3px rgba(0,0,0,.05),0 1px 2px rgba(0,0,0,.04);border:1px solid var(--gray-100);padding:20px}
+.card-head{display:flex;align-items:center;gap:8px;margin-bottom:16px}
+.card-head h3{font-size:12px;font-weight:800;color:var(--gray-500);text-transform:uppercase;letter-spacing:.06em}
+.card-head .muted-xs{margin-left:auto;font-size:12px;color:var(--gray-400)}
+.icon-brand{color:var(--brand-500);flex-shrink:0}
+
+.row-2col{display:grid;gap:20px;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));margin-bottom:20px}
+.row-dims-diagram{display:grid;gap:20px;grid-template-columns:minmax(0,1fr) minmax(220px,300px)}
+@media (max-width:760px){.row-dims-diagram{grid-template-columns:1fr}}
+.col-flex{display:flex;flex-direction:column;gap:20px}
+
+.hint{margin-top:10px;font-size:12px;color:var(--gray-400);display:flex;align-items:flex-start;gap:6px}
+.hint svg{flex-shrink:0;margin-top:2px}
+.tag-row{margin-top:12px;display:flex;flex-wrap:wrap;gap:8px}
+.tag{font-size:12px;padding:4px 10px;border-radius:8px;font-weight:700}
+.tag-indigo{background:var(--brand-50);color:var(--brand-700)}
+.tag-slate{background:var(--gray-100);color:var(--gray-600)}
+
+/* ═══════════════════════════════════════════════════════════════
+   DROPDOWN
+   ═══════════════════════════════════════════════════════════════ */
+.dd-wrap{position:relative}
+.dd-label{display:block;font-size:12px;font-weight:800;color:var(--gray-500);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
+.dd-trigger{
+  width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;
+  padding:12px 16px;background:#fff;border-radius:14px;border:2px solid var(--gray-200);
+  text-align:left;cursor:pointer;transition:border-color .2s ease,box-shadow .2s ease;
+}
+.dd-trigger:hover{border-color:var(--brand-300)}
+.dd-trigger-open{border-color:var(--brand-500)!important;box-shadow:0 8px 20px -4px rgba(99,102,241,.18)}
+.dd-trigger-label{font-size:14px;color:var(--gray-400);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dd-trigger-label.selected-label{color:var(--gray-900);font-weight:700}
+.dd-trigger-icon{color:var(--gray-400);flex-shrink:0}
+.dd-trigger-main{display:flex;align-items:center;gap:8px;min-width:0}
+.dd-trigger-icon{display:none;flex-shrink:0;width:24px;height:24px;align-items:center;justify-content:center}
+.dd-chevron{flex-shrink:0;color:var(--gray-400);transition:transform .3s var(--ease-snap)}
+.dd-chevron.open{transform:rotate(180deg)}
+
+.dd-panel{
+  position:absolute;top:calc(100% + 8px);left:0;right:0;z-index:50;
+  background:#fff;border-radius:14px;box-shadow:0 20px 45px -10px rgba(15,23,42,.25);
+  border:1px solid var(--gray-100);overflow:hidden;overscroll-behavior:contain;
+  animation:scaleIn .2s var(--ease-snap);transform-origin:top center;
+}
+.dd-panel.dd-panel-exit{animation:scaleOut .16s var(--ease-snap) forwards}
+.dd-search-row{padding:8px;border-bottom:1px solid var(--gray-100)}
+.dd-search-box{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--gray-50);border-radius:10px}
+.dd-search-box svg{flex-shrink:0;color:var(--gray-400)}
+.dd-search-input{flex:1;background:transparent;border:none;outline:none;font-size:14px;color:var(--gray-700)}
+.dd-search-input::placeholder{color:var(--gray-400)}
+.dd-list{overflow-y:auto;max-height:260px;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;touch-action:pan-y}
+.dd-list::-webkit-scrollbar{width:4px}
+.dd-list::-webkit-scrollbar-track{background:var(--gray-100);border-radius:3px}
+.dd-list::-webkit-scrollbar-thumb{background:var(--brand-300);border-radius:3px}
+.dd-group-label{padding:6px 12px;font-size:11px;font-weight:800;color:var(--brand-600);background:var(--brand-50);text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid var(--brand-100);position:sticky;top:0}
+.dd-option{
+  width:100%;text-align:left;padding:8px 16px;font-size:14px;color:var(--gray-700);
+  background:none;border:none;cursor:pointer;display:flex;align-items:center;gap:10px;
+  transition:background-color .1s ease,color .1s ease;
+  animation:slideItem .22s var(--ease-snap) both;
+}
+.dd-option:hover{background:var(--gray-50)}
+.dd-option.selected{background:var(--brand-50);color:var(--brand-700);font-weight:700}
+.dd-option-icon{flex-shrink:0;width:24px;height:24px;display:flex;align-items:center;justify-content:center}
+.dd-option-label{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dd-option svg{flex-shrink:0;color:var(--brand-600)}
+.dd-empty{padding:32px 16px;text-align:center;font-size:14px;color:var(--gray-400)}
+
+/* ═══════════════════════════════════════════════════════════════
+   BUTTONS
+   ═══════════════════════════════════════════════════════════════ */
+.btn-row{display:flex;flex-wrap:wrap;gap:12px;margin-top:16px}
+.mag-wrap{position:relative;display:inline-block}
+.mag-btn{
+  position:relative;z-index:1;padding:3px;border:none;border-radius:14px;cursor:pointer;
+  background:linear-gradient(115deg,var(--brand-700),var(--violet-600),var(--sky-500),var(--emerald-400),var(--violet-600),var(--brand-700));
+  background-size:300% 300%;
+  animation:gradFlow 4.5s ease infinite;
+  transition:box-shadow .25s ease;
+  will-change:transform;
+  overflow:hidden;
+}
+.mag-btn:hover{box-shadow:0 14px 36px -6px rgba(99,102,241,.55)}
+.mag-btn:active{transform:scale(.95)!important}
+.mag-btn:disabled{opacity:.5;cursor:not-allowed;animation:none;background:#9ca3af!important;box-shadow:none}
+.mag-btn:focus-visible{outline:2px solid var(--brand-400);outline-offset:3px}
+.mag-btn-fill{
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  padding:12px 30px;border-radius:11px;font-weight:800;color:#fff;font-size:14px;
+  background:linear-gradient(135deg,var(--ink-900),var(--ink-800) 60%,var(--ink-700));
+}
+.particle{position:absolute;width:8px;height:8px;border-radius:50%;pointer-events:none;z-index:5;
+  animation:particleOut .75s cubic-bezier(.25,.46,.45,.94) forwards}
+.ripple-el{position:absolute;border-radius:50%;pointer-events:none;background:rgba(255,255,255,.42);z-index:4;
+  animation:rippleOut .65s var(--ease-snap) forwards}
+
+.btn-secondary{
+  display:flex;align-items:center;gap:8px;padding:12px 20px;border-radius:14px;
+  border:2px solid var(--gray-200);background:#fff;color:var(--gray-600);font-size:14px;font-weight:700;
+  cursor:pointer;transition:border-color .2s ease,background-color .2s ease;
+}
+.btn-secondary:hover{border-color:var(--gray-300);background:var(--gray-50)}
+.btn-secondary:focus-visible{outline:2px solid var(--brand-400);outline-offset:2px}
+
+.btn-solid{
+  display:flex;align-items:center;gap:8px;padding:11px 18px;border-radius:14px;border:none;
+  background:var(--brand-600);color:#fff;font-size:14px;font-weight:800;cursor:pointer;
+  transition:background-color .2s ease;box-shadow:0 2px 8px rgba(79,70,229,.25);
+}
+.btn-solid:hover{background:var(--brand-700)}
+.btn-solid:disabled{opacity:.5;cursor:not-allowed}
+.btn-solid:focus-visible{outline:2px solid var(--brand-300);outline-offset:2px}
+
+.btn-outline{
+  display:flex;align-items:center;gap:8px;padding:11px 18px;border-radius:14px;
+  border:2px solid var(--gray-200);background:#fff;color:var(--gray-700);font-size:14px;font-weight:800;
+  cursor:pointer;transition:background-color .2s ease;
+}
+.btn-outline:hover{background:var(--gray-50)}
+.btn-outline:focus-visible{outline:2px solid var(--brand-400);outline-offset:2px}
+
+.btn-dashed{
+  display:inline-flex;align-items:center;gap:8px;padding:10px 24px;border-radius:14px;
+  border:2px dashed var(--brand-300);background:none;color:var(--brand-500);font-size:14px;font-weight:800;
+  cursor:pointer;transition:border-color .2s ease,background-color .2s ease;
+}
+.btn-dashed:hover{border-color:var(--brand-400);background:var(--brand-50)}
+
+/* ═══════════════════════════════════════════════════════════════
+   DIMENSIONS / INPUTS
+   ═══════════════════════════════════════════════════════════════ */
+.dims-grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
+.dims-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 0;text-align:center;color:var(--gray-300);gap:8px}
+.dims-empty p{font-size:14px;color:var(--gray-400)}
+.dim-field label{display:block;font-size:12px;font-weight:700;color:var(--gray-500);margin-bottom:6px}
+.dim-field .unit{color:var(--gray-400);font-weight:400}
+.dim-input,.qty-input{
+  width:100%;padding:10px 12px;border-radius:12px;border:2px solid var(--gray-200);
+  font-size:14px;font-family:var(--font-mono);background:#fff;transition:border-color .15s ease,box-shadow .15s ease;
+}
+.dim-input:focus,.qty-input:focus{outline:none;border-color:var(--brand-400);box-shadow:0 0 0 3px rgba(99,102,241,.15)}
+input[type=number]::-webkit-outer-spin-button,input[type=number]::-webkit-inner-spin-button{opacity:.4}
+
+.qty-block{margin-top:20px;padding-top:16px;border-top:1px solid var(--gray-100)}
+.qty-label{display:block;font-size:12px;font-weight:800;color:var(--gray-500);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px}
+.qty-row{display:flex;align-items:center;gap:12px}
+.qty-input{width:112px;text-align:center}
+.qty-note{font-size:12px;color:var(--gray-400)}
+
+.dot-row{display:flex;gap:4px}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--gray-200);transition:background-color .2s ease}
+.dot.dot-on{background:var(--emerald-400)}
+
+.err-box{display:flex;align-items:center;gap:10px;padding:12px 16px;background:#fef2f2;border:1px solid #fecaca;border-radius:14px;font-size:14px;color:var(--red-600);margin-top:16px}
+.err-box svg{flex-shrink:0}
+
+/* ═══════════════════════════════════════════════════════════════
+   DIAGRAM / RESULT
+   ═══════════════════════════════════════════════════════════════ */
+.diagram-card{padding:16px}
+.diagram-label{font-size:12px;font-weight:800;color:var(--gray-400);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px}
+.diagram-box{
+  width:100%;aspect-ratio:1/1;padding:12px;border-radius:14px;
+  background:linear-gradient(135deg,var(--gray-50),var(--brand-50));
+  display:flex;align-items:center;justify-content:center;
+}
+.diagram-box svg{width:100%;height:100%}
+.diagram-placeholder{text-align:center;color:var(--gray-200)}
+.diagram-placeholder .big-glyph{font-size:56px;line-height:1}
+.diagram-placeholder p{font-size:12px;margin-top:8px;color:var(--gray-300)}
+
+.result-empty{
+  background:#fff;border-radius:20px;border:2px dashed var(--gray-200);padding:24px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;text-align:center;
+}
+.result-empty-icon{width:48px;height:48px;border-radius:50%;background:var(--brand-50);display:flex;align-items:center;justify-content:center;color:var(--brand-300)}
+.result-empty p{font-size:14px;color:var(--gray-400);font-weight:500;line-height:1.4}
+
+.result-card{border-radius:20px;overflow:hidden;animation:weightPop .48s cubic-bezier(.34,1.56,.64,1),pulseGlow 1.6s ease 3}
+.result-card-inner{padding:20px;background:linear-gradient(135deg,#1e1b4b,#312e81,#4338ca,#5b21b6)}
+.result-eyebrow{color:#a5b4fc;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px}
+.result-big-wrap{text-align:center;margin-bottom:12px}
+.result-big{
+  font-weight:900;font-family:var(--font-mono);line-height:1;font-size:44px;
+  background:linear-gradient(90deg,#fff 25%,#c7d2fe 50%,#fff 75%);background-size:200% auto;
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  animation:shimmer 2.8s linear infinite;
+}
+.result-unit{color:#a5b4fc;font-size:14px;font-weight:500;margin-top:4px}
+.result-qty-row{border-top:1px solid #3730a3;padding-top:12px;margin-top:12px;display:flex;justify-content:space-between;align-items:center}
+.result-qty-row span:first-child{color:#818cf8;font-size:12px}
+.result-qty-row span:last-child{color:#fff;font-weight:900;font-size:18px;font-family:var(--font-mono)}
+.result-meta{margin-top:16px;border-radius:12px;padding:12px;font-size:12px;background:rgba(30,27,75,.5)}
+.meta-row{display:flex;justify-content:space-between;gap:8px;padding:3px 0}
+.meta-row span:first-child{color:#818cf8}
+.meta-row span:last-child{color:#fff;font-weight:600;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-left:8px}
+
+/* ═══════════════════════════════════════════════════════════════
+   BOM PAGE
+   ═══════════════════════════════════════════════════════════════ */
+.page-head-flex{display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:24px}
+.page-head-actions{display:flex;flex-wrap:wrap;gap:8px}
+
+.summary-grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));margin-bottom:20px}
+.stat-card{background:#fff;border-radius:14px;box-shadow:0 1px 3px rgba(0,0,0,.05);border:1px solid var(--gray-100);padding:16px}
+.stat-card p:first-child{font-size:11px;color:var(--gray-400);text-transform:uppercase;letter-spacing:.05em;font-weight:800}
+.stat-card p:last-child{font-weight:900;font-family:var(--font-mono);margin-top:4px;font-size:24px}
+.stat-card.stat-lg p:last-child{font-size:16px}
+.stat-total p:last-child{color:var(--gray-900)}
+.stat-calc p:last-child{color:var(--emerald-600)}
+.stat-pending p:last-child{color:var(--amber-600)}
+.stat-weight p:last-child{color:var(--violet-600)}
+
+.table-card{padding:0;overflow:hidden}
+.table-scroll{overflow-x:auto}
+.table-scroll::-webkit-scrollbar{height:8px}
+.table-scroll::-webkit-scrollbar-track{background:var(--gray-100)}
+.table-scroll::-webkit-scrollbar-thumb{background:var(--brand-300);border-radius:4px}
+table.bom-table{width:100%;border-collapse:collapse;min-width:980px}
+table.bom-table thead tr{background:linear-gradient(135deg,#0f172a,#1e1b4b,#312e81)}
+table.bom-table th{padding:14px 8px;font-size:11px;font-weight:800;color:#c7d2fe;text-transform:uppercase;letter-spacing:.05em;text-align:left}
+table.bom-table th.right{text-align:right}
+table.bom-table th.center{text-align:center}
+.bom-tr:nth-child(even){background:var(--gray-50)}
+.bom-tr:hover{background:#eff6ff}
+.bom-tr td{padding:6px 8px;vertical-align:top}
+.bom-sr{text-align:center;font-size:12px;font-weight:700;color:var(--gray-300);padding-top:14px!important}
+.bom-input{
+  width:100%;padding:6px 8px;font-size:12.5px;border:1px solid var(--gray-200);border-radius:8px;
+  background:#fff;transition:border-color .12s ease;
+}
+.bom-input:focus{outline:none;border-color:var(--brand-400)}
+select.bom-input{cursor:pointer}
+.bom-dims-row{display:flex;flex-wrap:wrap;gap:6px}
+.bom-dim-field{display:flex;flex-direction:column;gap:2px}
+.bom-dim-k{font-size:11px;color:var(--gray-400);font-family:var(--font-mono);font-weight:700;line-height:1}
+.bom-dim-u{color:var(--gray-300);font-weight:400}
+.bom-dim-field input{width:64px;padding:4px 6px;font-size:11px;font-family:var(--font-mono)}
+.bom-dims-empty{font-size:12px;color:var(--gray-300);font-style:italic;padding:8px 0}
+.bom-qty{width:48px;text-align:center;font-family:var(--font-mono)}
+.bom-single-wt,.bom-total-wt{text-align:right;font-family:var(--font-mono);font-size:12.5px;color:var(--gray-200);padding-top:14px!important;white-space:nowrap}
+.bom-single-wt.wt-calculated{color:var(--brand-600);font-weight:700}
+.bom-total-wt.wt-calculated{color:var(--gray-900);font-weight:800}
+.bom-delete{
+  width:24px;height:24px;border-radius:8px;background:#fef2f2;color:#f87171;border:none;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;transition:background-color .15s ease,color .15s ease;
+}
+.bom-delete:hover{background:#fee2e2;color:var(--red-600)}
+tfoot tr{background:linear-gradient(135deg,#ede9fe,#e0e7ff)}
+tfoot td{padding:14px 12px}
+.tfoot-label{font-size:11px;font-weight:800;color:var(--gray-400);text-transform:uppercase;letter-spacing:.05em}
+.tfoot-total-label{font-size:11px;font-weight:800;color:var(--gray-500);text-transform:uppercase;text-align:right;display:block}
+.tfoot-total-value{font-size:18px;font-weight:900;font-family:var(--font-mono);color:var(--violet-600);text-align:right;display:block}
+
+.add-row-footer{margin-top:16px;text-align:center}
+.print-hint{margin-top:12px;text-align:center;font-size:12px;color:var(--gray-400)}
+.print-header{display:none}
+
+/* ═══════════════════════════════════════════════════════════════
+   PRINT
+   ═══════════════════════════════════════════════════════════════ */
+@media print{
+  @page{size:landscape;margin:10mm}
+  .no-print{display:none!important}
+  .print-header{display:flex!important}
+  body{background:#fff!important;font-size:9.5pt}
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  table.bom-table{page-break-inside:auto}
+  table.bom-table tr{page-break-inside:avoid;page-break-after:auto}
+  table.bom-table thead{display:table-header-group}
+  .bom-input{border:none!important;background:transparent!important;padding:1px 2px!important;color:#0f172a!important;font-weight:600;appearance:none;-webkit-appearance:none}
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   REDUCED MOTION
+   ═══════════════════════════════════════════════════════════════ */
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{
+    animation-duration:.01ms!important;animation-iteration-count:1!important;
+    transition-duration:.01ms!important;scroll-behavior:auto!important;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   RESPONSIVE
+   ═══════════════════════════════════════════════════════════════ */
+@media (max-width:640px){
+  .page-head h2{font-size:20px}
+  .result-big{font-size:34px}
+  .header-inner{flex-direction:column;align-items:flex-start}
+  .brand-contact{text-align:left}
+}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     HEADER
+     ═══════════════════════════════════════════════════════════════ -->
+<header class="site-header no-print hdr-in">
+  <div class="header-inner">
+    <div class="brand">
+      <img class="brand-logo" src="logo.png" alt="PS3D Hub logo">
+      <div>
+        <p class="brand-name">PS3D <span>Hub</span></p>
+        <p class="brand-sub">IS Standard · Part &amp; BOM Weight Calculator</p>
+      </div>
+    </div>
+    <div class="brand-contact" id="brand-contact">
+      <p class="contact-loading">Bengaluru, India</p>
+    </div>
+  </div>
+</header>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     NAV
+     ═══════════════════════════════════════════════════════════════ -->
+<nav class="site-nav no-print nav-in">
+  <div class="nav-inner">
+    <button class="tab-btn active" id="tab-calc" type="button" aria-current="page">
+      <span id="icon-mount-tab-calc"></span>
+      <span>Part Weight Calculator<span class="tab-sub">Single part</span></span>
+    </button>
+    <button class="tab-btn" id="tab-bom" type="button">
+      <span id="icon-mount-tab-bom"></span>
+      <span>BOM Calculator<span class="tab-sub">Bill of materials</span></span>
+    </button>
+  </div>
+</nav>
+
+<div class="page-shell">
+<aside class="side-panel side-left no-print" aria-label="Why this tool is different">
+  <div class="side-panel-inner">
+    <p class="side-eyebrow">Why This Tool</p>
+    <ul class="side-list">
+      <li><span class="side-dot"></span>Built for <strong>IS Standards</strong> — the specs actually used on Indian shop floors, not generic international units</li>
+      <li><span class="side-dot"></span><strong>151 real material grades</strong> — structural &amp; alloy steel, TMT rebar, non-ferrous metals, plastics, rubber, wood, concrete</li>
+      <li><span class="side-dot"></span><strong>22 shapes with validated formulas</strong> — flags impossible dimensions instead of a silently wrong number</li>
+      <li><span class="side-dot"></span>Covers <strong>ISMB / ISJB / ISLB / ISWB / ISHB / ISMC</strong> series by manual size entry</li>
+      <li><span class="side-dot"></span><strong>TMT rebar grades Fe415–Fe600</strong> — most generic calculators skip this entirely</li>
+    </ul>
+  </div>
+</aside>
+
+<main>
+<!-- ═══════════════════════════════════════════════════════════════
+     PAGE 1 — PART WEIGHT CALCULATOR
+     ═══════════════════════════════════════════════════════════════ -->
+<section class="page" id="page-calc">
+  <div class="container">
+
+    <div class="page-head anim-in">
+      <div class="page-head-icon" id="icon-mount-calc-head"></div>
+      <div>
+        <h2>Part Weight Calculator</h2>
+        <p id="calc-subtitle">22 shapes · 151 IS-standard materials · Instant result</p>
+      </div>
+    </div>
+
+    <div class="row-2col anim-in" style="animation-delay:.05s">
+      <div class="card">
+        <div class="card-head">
+          <span class="icon-brand" id="icon-mount-layers"></span>
+          <h3>Shape Type</h3>
+          <span class="muted-xs" id="shape-count-label"></span>
+        </div>
+        <div id="shape-dropdown-mount"></div>
+        <p class="hint" id="shape-desc"></p>
+      </div>
+      <div class="card">
+        <div class="card-head">
+          <span class="icon-brand" id="icon-mount-package"></span>
+          <h3>Material — IS Standard</h3>
+          <span class="muted-xs" id="mat-count-label"></span>
+        </div>
+        <div id="mat-dropdown-mount"></div>
+        <div class="tag-row" id="mat-tags"></div>
+      </div>
+    </div>
+
+    <div class="row-dims-diagram anim-in" style="animation-delay:.10s">
+      <div class="col-flex">
+        <div class="card">
+          <div class="card-head">
+            <h3>Dimensions</h3>
+            <div id="dim-progress" style="margin-left:auto;display:flex;align-items:center;gap:8px"></div>
+          </div>
+          <div id="dims-container"></div>
+          <div class="qty-block" id="qty-container" hidden></div>
+        </div>
+
+        <div class="err-box" id="err-box" hidden></div>
+
+        <div class="btn-row">
+          <span class="mag-wrap" id="calc-btn-wrap">
+            <button class="mag-btn" id="calc-btn" type="button" disabled>
+              <span class="mag-btn-fill">
+                <span id="icon-mount-zap"></span>
+                <span>Calculate Weight</span>
+              </span>
+            </button>
+          </span>
+          <button class="btn-secondary" id="reset-btn" type="button">
+            <span id="icon-mount-refresh"></span>
+            <span>Reset</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="col-flex">
+        <div class="card diagram-card">
+          <p class="diagram-label">Cross-Section View</p>
+          <div class="diagram-box" id="diagram-mount">
+            <div class="diagram-placeholder"><div class="big-glyph">⬡</div><p>Awaiting shape</p></div>
+          </div>
+        </div>
+        <div id="result-mount">
+          <div class="result-empty">
+            <div class="result-empty-icon" id="icon-mount-barchart"></div>
+            <p>Result appears here<br>after calculation</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     PAGE 2 — BOM WEIGHT CALCULATOR
+     ═══════════════════════════════════════════════════════════════ -->
+<section class="page" id="page-bom" hidden>
+  <div class="container">
+
+    <div class="print-header" style="flex-direction:column;gap:4px;margin-bottom:24px;padding-bottom:16px;border-bottom:2px solid #1e293b">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div>
+          <div style="font-size:20pt;font-weight:900;color:#0f172a">BILL OF MATERIALS</div>
+          <div style="font-size:10pt;color:#475569">Part Weight Report — IS Standard Materials</div>
+        </div>
+        <div style="text-align:right;font-size:9pt;color:#64748b">
+          <div>Date: <span id="print-date"></span></div>
+          <div>Total Rows: <span id="print-total-rows"></span> | Calculated: <span id="print-calc-count"></span></div>
+          <div style="font-weight:700;color:#1e1b4b">Total BOM Weight: <span id="print-bom-weight"></span></div>
+        </div>
+      </div>
+      <div style="margin-top:4px;padding:8px;background:#f8fafc;border-left:4px solid #4338ca;font-size:9pt;color:#475569">
+        [ Your Company Name · Logo · Tagline · Project Name · Drawing No. ]
+      </div>
+    </div>
+
+    <div class="page-head-flex no-print anim-in">
+      <div class="page-head">
+        <div class="page-head-icon" id="icon-mount-bom-head" style="background:linear-gradient(135deg,#7c3aed,#4338ca)"></div>
+        <div>
+          <h2>BOM Weight Calculator</h2>
+          <p>Bill of Materials · Up to 100 rows · Auto-calculation · Print</p>
+        </div>
+      </div>
+      <div class="page-head-actions">
+        <button class="btn-solid" id="add-row-btn" type="button"></button>
+        <button class="btn-outline" id="print-btn" type="button">
+          <span id="icon-mount-printer"></span><span>Print BOM</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="summary-grid no-print anim-in" style="animation-delay:.05s">
+      <div class="stat-card stat-total"><p>Total Rows</p><p id="stat-total">1</p></div>
+      <div class="stat-card stat-calc"><p>Calculated</p><p id="stat-calc">0</p></div>
+      <div class="stat-card stat-pending"><p>Pending</p><p id="stat-pending">1</p></div>
+      <div class="stat-card stat-weight stat-lg"><p>BOM Weight</p><p id="stat-weight">—</p></div>
+    </div>
+
+    <div class="card table-card anim-in" style="animation-delay:.10s">
+      <div class="table-scroll">
+        <table class="bom-table">
+          <thead>
+            <tr>
+              <th class="center" style="width:34px">Sr.</th>
+              <th style="width:140px">Part Name</th>
+              <th style="width:160px">Shape</th>
+              <th style="width:190px">Material</th>
+              <th>Dimensions</th>
+              <th style="width:56px">Qty</th>
+              <th class="right" style="width:96px">Single Wt.</th>
+              <th class="right" style="width:96px">Total Wt.</th>
+              <th class="no-print" style="width:40px"></th>
+            </tr>
+          </thead>
+          <tbody id="bom-tbody"></tbody>
+          <tfoot>
+            <tr>
+              <td colspan="6"><span class="tfoot-label" id="footer-summary-text"></span></td>
+              <td><span class="tfoot-total-label">Total BOM →</span></td>
+              <td><span class="tfoot-total-value" id="footer-total"></span></td>
+              <td class="no-print"></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+
+    <div class="add-row-footer no-print" id="add-row-footer">
+      <button class="btn-dashed" id="add-row-btn-2" type="button">
+        <span id="icon-mount-plus2"></span><span>Add Another Row</span>
+      </button>
+    </div>
+
+    <p class="print-hint no-print">Click <strong>Print BOM</strong> to generate a printable report with all calculated weights.</p>
+  </div>
+</section>
+</main>
+
+<aside class="side-panel side-right no-print" aria-label="Benefits of this tool">
+  <div class="side-panel-inner">
+    <p class="side-eyebrow">Benefits</p>
+    <ul class="side-list">
+      <li><span class="side-dot"></span><strong>Instant, accurate results</strong> — no manual lookup tables or hand calculation</li>
+      <li><span class="side-dot"></span><strong>Full BOM builder</strong> — up to 100 line items, auto-totaled as you type</li>
+      <li><span class="side-dot"></span><strong>One-click print-ready reports</strong> — for quotes, purchase orders, shop floor use</li>
+      <li><span class="side-dot"></span><strong>No login, no upload, no cost</strong> — everything runs in your browser</li>
+      <li><span class="side-dot"></span><strong>Works offline</strong> once the page has loaded</li>
+    </ul>
+  </div>
+</aside>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     FOOTER
+     ═══════════════════════════════════════════════════════════════ -->
+<footer class="site-footer no-print">
+  <div class="footer-inner">
+    <div class="footer-top">
+      <div>
+        <p>PS3D Hub</p>
+        <p class="footer-sub">22 Shapes · 151 IS-Standard Materials · Part &amp; BOM Calculator</p>
+      </div>
+      <div class="footer-right" id="footer-contact">
+        <p>Bengaluru, India</p>
+        <p>Weights derived from IS standard material densities</p>
+      </div>
+    </div>
+    <div class="footer-tags">
+      <span class="footer-tag">IS 2062</span><span class="footer-tag">IS 1570</span>
+      <span class="footer-tag">IS 6603</span><span class="footer-tag">IS 210</span>
+      <span class="footer-tag">IS 1865</span><span class="footer-tag">IS 733/736</span>
+      <span class="footer-tag">IS 191</span><span class="footer-tag">IS 319</span>
+      <span class="footer-tag">IS 318</span><span class="footer-tag">IS 513</span>
+      <span class="footer-tag">IS 456</span><span class="footer-tag">IS 1786</span>
+      <span class="footer-tag">IS 3195</span><span class="footer-tag">IS 277</span>
+      <span class="footer-tag">IS 649</span><span class="footer-tag">BS 970</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+"use strict";
+/* ═══════════════════════════════════════════════════════════════
+   ICONS — hand-drawn SVG (no external icon library needed)
+   ═══════════════════════════════════════════════════════════════ */
+function svgIcon(inner, size, strokeWidth, fill){
+  return '<svg width="'+size+'" height="'+size+'" viewBox="0 0 24 24" fill="'+(fill||'none')+'" stroke="currentColor" stroke-width="'+(strokeWidth||1.8)+'" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+inner+'</svg>';
+}
+const ICONS = {
+  calculator:(s=18)=>svgIcon('<rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="10.5" x2="8.01" y2="10.5"/><line x1="12" y1="10.5" x2="12.01" y2="10.5"/><line x1="16" y1="10.5" x2="16.01" y2="10.5"/><line x1="8" y1="14.5" x2="8.01" y2="14.5"/><line x1="12" y1="14.5" x2="12.01" y2="14.5"/><line x1="16" y1="14.5" x2="16.01" y2="14.5"/><line x1="8" y1="18.5" x2="8.01" y2="18.5"/><line x1="12" y1="18.5" x2="12.01" y2="18.5"/><line x1="16" y1="18.5" x2="16.01" y2="18.5"/>',s),
+  spreadsheet:(s=18)=>svgIcon('<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/><line x1="12" y1="13" x2="12" y2="17"/>',s),
+  chevronDown:(s=15)=>svgIcon('<polyline points="6 9 12 15 18 9"/>',s,2),
+  plus:(s=14)=>svgIcon('<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>',s,2.2),
+  trash:(s=11)=>svgIcon('<polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>',s,1.8),
+  printer:(s=14)=>svgIcon('<polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/>',s,1.8),
+  search:(s=13)=>svgIcon('<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>',s,2.2),
+  x:(s=12)=>svgIcon('<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>',s,2.2),
+  check:(s=13)=>svgIcon('<polyline points="20 6 9 17 4 12"/>',s,2.6),
+  refresh:(s=14)=>svgIcon('<path d="M4 12a8 8 0 0 1 8-8c2.5 0 4.7 1.2 6 3"/><path d="M20 12a8 8 0 0 1-8 8c-2.5 0-4.7-1.2-6-3"/><polyline points="18 4 18 7 15 7"/><polyline points="6 20 6 17 9 17"/>',s,1.8),
+  info:(s=11)=>svgIcon('<circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16"/><line x1="12" y1="7.5" x2="12.01" y2="7.5"/>',s,1.8),
+  zap:(s=15)=>svgIcon('<path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/>',s,1.5,'currentColor'),
+  layers:(s=15)=>svgIcon('<polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/>',s,1.8),
+  package:(s=15)=>svgIcon('<path d="M21 8l-9-5-9 5v8l9 5 9-5V8z"/><polyline points="3.3 7.5 12 12.5 20.7 7.5"/><line x1="12" y1="22" x2="12" y2="12.5"/>',s,1.8),
+  alertCircle:(s=15)=>svgIcon('<circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="13"/><line x1="12" y1="16.5" x2="12.01" y2="16.5"/>',s,1.8),
+  barChart:(s=20)=>svgIcon('<line x1="5" y1="21" x2="5" y2="12"/><line x1="12" y1="21" x2="12" y2="7"/><line x1="19" y1="21" x2="19" y2="15"/>',s,1.8),
+};
+function mountIcon(id, fn, ...args){ const el=document.getElementById(id); if(el) el.innerHTML = fn(...args); }
+
+/* ═══════════════════════════════════════════════════════════════
+   ESCAPE HELPERS
+   ═══════════════════════════════════════════════════════════════ */
+function escHtml(str){
+  return String(str==null?'':str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   MATERIAL DATABASE — IS Standards (density d in kg/m³)
+   ═══════════════════════════════════════════════════════════════ */
+const MAT = [
+  {id:"e250a",c:"Structural Steel (IS 2062:2011)",g:"E250A / Fe410WA",d:7850,s:"IS 2062:2011"},
+  {id:"e250b",c:"Structural Steel (IS 2062:2011)",g:"E250B / Fe410WB",d:7850,s:"IS 2062:2011"},
+  {id:"e250c",c:"Structural Steel (IS 2062:2011)",g:"E250C / Fe410WC",d:7850,s:"IS 2062:2011"},
+  {id:"e300", c:"Structural Steel (IS 2062:2011)",g:"E300 / Fe440",   d:7850,s:"IS 2062:2011"},
+  {id:"e350", c:"Structural Steel (IS 2062:2011)",g:"E350 / Fe490",   d:7850,s:"IS 2062:2011"},
+  {id:"e410", c:"Structural Steel (IS 2062:2011)",g:"E410 / Fe540",   d:7850,s:"IS 2062:2011"},
+  {id:"e450", c:"Structural Steel (IS 2062:2011)",g:"E450A / Fe590",  d:7850,s:"IS 2062:2011"},
+  {id:"e550", c:"Structural Steel (IS 2062:2011)",g:"E550 / Fe660",   d:7850,s:"IS 2062:2011"},
+  {id:"ms-gen",c:"Structural Steel (IS 2062:2011)",g:"MS – Mild Steel (General Purpose)", d:7850,s:"IS 2062:2011"},
+  {id:"c10",c:"Carbon Steel (IS 1570 Pt.1)",g:"C10 / 080M10",d:7840,s:"IS 1570 Pt.1"},
+  {id:"c15",c:"Carbon Steel (IS 1570 Pt.1)",g:"C15 / 080M15",d:7840,s:"IS 1570 Pt.1"},
+  {id:"c20",c:"Carbon Steel (IS 1570 Pt.1)",g:"C20",          d:7840,s:"IS 1570 Pt.1"},
+  {id:"c25",c:"Carbon Steel (IS 1570 Pt.1)",g:"C25 / C25Mn75",d:7840,s:"IS 1570 Pt.1"},
+  {id:"c30",c:"Carbon Steel (IS 1570 Pt.1)",g:"C30 / 080M30", d:7840,s:"IS 1570 Pt.1"},
+  {id:"c35",c:"Carbon Steel (IS 1570 Pt.1)",g:"C35 / 080M36", d:7840,s:"IS 1570 Pt.1"},
+  {id:"c40",c:"Carbon Steel (IS 1570 Pt.1)",g:"C40 / 080M40", d:7840,s:"IS 1570 Pt.1"},
+  {id:"c45",c:"Carbon Steel (IS 1570 Pt.1)",g:"C45 / 080M46", d:7840,s:"IS 1570 Pt.1"},
+  {id:"c50",c:"Carbon Steel (IS 1570 Pt.1)",g:"C50 / 080M50", d:7840,s:"IS 1570 Pt.1"},
+  {id:"c55",c:"Carbon Steel (IS 1570 Pt.1)",g:"C55 / 070M55", d:7840,s:"IS 1570 Pt.1"},
+  {id:"c60",c:"Carbon Steel (IS 1570 Pt.1)",g:"C60 / 080M60", d:7840,s:"IS 1570 Pt.1"},
+  {id:"40cr4",   c:"Alloy Steel (IS 1570 Pt.2)",g:"40Cr4 / EN18 / SCr440",         d:7850,s:"IS 1570 Pt.2"},
+  {id:"40cr4mo2",c:"Alloy Steel (IS 1570 Pt.2)",g:"40Cr4Mo2 / EN19 / SCM440",      d:7850,s:"IS 1570 Pt.2"},
+  {id:"40ni3",   c:"Alloy Steel (IS 1570 Pt.2)",g:"40Ni3 / EN22 / SNC236",         d:7850,s:"IS 1570 Pt.2"},
+  {id:"40ni2cr1",c:"Alloy Steel (IS 1570 Pt.2)",g:"40Ni2Cr1Mo28 / EN24 / 817M40",  d:7850,s:"IS 1570 Pt.2"},
+  {id:"16ni3cr2",c:"Alloy Steel (IS 1570 Pt.2)",g:"16Ni3Cr2 / EN36 (Case Harden)", d:7850,s:"IS 1570 Pt.2"},
+  {id:"35mn6mo3",c:"Alloy Steel (IS 1570 Pt.2)",g:"35Mn6Mo3",                      d:7850,s:"IS 1570 Pt.2"},
+  {id:"fe415", c:"TMT / Rebar Steel (IS 1786:2008)",g:"Fe415  – HYSD Bar",  d:7850,s:"IS 1786:2008"},
+  {id:"fe415d",c:"TMT / Rebar Steel (IS 1786:2008)",g:"Fe415D – HYSD Bar", d:7850,s:"IS 1786:2008"},
+  {id:"fe500", c:"TMT / Rebar Steel (IS 1786:2008)",g:"Fe500  – TMT Bar",  d:7850,s:"IS 1786:2008"},
+  {id:"fe500d",c:"TMT / Rebar Steel (IS 1786:2008)",g:"Fe500D – TMT Bar (Seismic)", d:7850,s:"IS 1786:2008"},
+  {id:"fe550", c:"TMT / Rebar Steel (IS 1786:2008)",g:"Fe550  – TMT Bar",  d:7850,s:"IS 1786:2008"},
+  {id:"fe550d",c:"TMT / Rebar Steel (IS 1786:2008)",g:"Fe550D – TMT Bar (Seismic)", d:7850,s:"IS 1786:2008"},
+  {id:"fe600", c:"TMT / Rebar Steel (IS 1786:2008)",g:"Fe600  – TMT Bar",  d:7850,s:"IS 1786:2008"},
+  {id:"en8", c:"EN-Series Steel (BS 970)",g:"EN8 / 080M40 (≈C45)",  d:7850,s:"BS 970"},
+  {id:"en9", c:"EN-Series Steel (BS 970)",g:"EN9 / 070M55 (≈C55)",  d:7850,s:"BS 970"},
+  {id:"en31",c:"EN-Series Steel (BS 970)",g:"EN31 / 535A99 (100Cr6) – Bearing Steel", d:7830,s:"BS 970"},
+  {id:"sp55si7", c:"Spring Steel (IS 3195)",g:"55Si7 – Silico-Manganese",  d:7850,s:"IS 3195"},
+  {id:"sp65si7", c:"Spring Steel (IS 3195)",g:"65Si7 – Silico-Manganese",  d:7850,s:"IS 3195"},
+  {id:"sp50cr4v2",c:"Spring Steel (IS 3195)",g:"50Cr4V2 – Chrome-Vanadium",d:7850,s:"IS 3195"},
+  {id:"ts-o1",c:"Tool Steel",g:"O1 – Oil-Hardening",        d:7870,s:"ASTM A681"},
+  {id:"ts-d2",c:"Tool Steel",g:"D2 – High-Chromium",        d:7700,s:"ASTM A681"},
+  {id:"ts-h13",c:"Tool Steel",g:"H13 – Cr-Mo-V Hot-Work",   d:7800,s:"ASTM A681"},
+  {id:"cr1",c:"Cold Rolled Steel (IS 513:2008)",g:"CR1 – Commercial Quality",  d:7850,s:"IS 513:2008"},
+  {id:"cr2",c:"Cold Rolled Steel (IS 513:2008)",g:"CR2 – Drawing Quality",     d:7850,s:"IS 513:2008"},
+  {id:"cr3",c:"Cold Rolled Steel (IS 513:2008)",g:"CR3 – Deep Drawing",        d:7850,s:"IS 513:2008"},
+  {id:"cr4",c:"Cold Rolled Steel (IS 513:2008)",g:"CR4 – Extra Deep Drawing",  d:7850,s:"IS 513:2008"},
+  {id:"cr5",c:"Cold Rolled Steel (IS 513:2008)",g:"CR5 – Special Deep Drawing",d:7850,s:"IS 513:2008"},
+  {id:"gp",c:"Galvanized Steel (IS 277)",g:"GP Sheet – Galvanized Plain",      d:7850,s:"IS 277"},
+  {id:"gc",c:"Galvanized Steel (IS 277)",g:"GC Sheet – Galvanized Corrugated", d:7850,s:"IS 277"},
+  {id:"crgo", c:"Electrical Steel (IS 649)",g:"CRGO – Grain-Oriented",     d:7650,s:"IS 649"},
+  {id:"crngo",c:"Electrical Steel (IS 649)",g:"CRNGO – Non-Grain-Oriented",d:7700,s:"IS 649"},
+  {id:"ss201", c:"Stainless Steel (IS 6603:2012)",g:"SS 201",                           d:7920,s:"IS 6603:2012"},
+  {id:"ss202", c:"Stainless Steel (IS 6603:2012)",g:"SS 202",                           d:7920,s:"IS 6603:2012"},
+  {id:"ss304", c:"Stainless Steel (IS 6603:2012)",g:"SS 304 / 04Cr18Ni10 (1.4301)",    d:7930,s:"IS 6603:2012"},
+  {id:"ss304l",c:"Stainless Steel (IS 6603:2012)",g:"SS 304L / 02Cr18Ni10 (1.4306)",   d:7930,s:"IS 6603:2012"},
+  {id:"ss316", c:"Stainless Steel (IS 6603:2012)",g:"SS 316 / 04Cr17Ni12Mo2 (1.4401)", d:7980,s:"IS 6603:2012"},
+  {id:"ss316l",c:"Stainless Steel (IS 6603:2012)",g:"SS 316L / 02Cr17Ni12Mo2 (1.4404)",d:7980,s:"IS 6603:2012"},
+  {id:"ss321", c:"Stainless Steel (IS 6603:2012)",g:"SS 321 / 04Cr18Ni10Ti (1.4541)",  d:7930,s:"IS 6603:2012"},
+  {id:"ss347", c:"Stainless Steel (IS 6603:2012)",g:"SS 347 / 08Cr19Ni10Nb",           d:7980,s:"IS 6603:2012"},
+  {id:"ss410", c:"Stainless Steel (IS 6603:2012)",g:"SS 410 / 12Cr13 (1.4006)",        d:7750,s:"IS 6603:2012"},
+  {id:"ss420", c:"Stainless Steel (IS 6603:2012)",g:"SS 420 / 20Cr13 (1.4021)",        d:7750,s:"IS 6603:2012"},
+  {id:"ss430", c:"Stainless Steel (IS 6603:2012)",g:"SS 430 / 10Cr17 (1.4016)",        d:7720,s:"IS 6603:2012"},
+  {id:"ss431", c:"Stainless Steel (IS 6603:2012)",g:"SS 431 / 16Cr12Ni2 (1.4057)",     d:7750,s:"IS 6603:2012"},
+  {id:"ss630", c:"Stainless Steel (IS 6603:2012)",g:"SS 630 / 17-4 PH (1.4548)",       d:7780,s:"IS 6603:2012"},
+  {id:"ss904l",c:"Stainless Steel (IS 6603:2012)",g:"SS 904L / 1.4539",                d:7980,s:"IS 6603:2012"},
+  {id:"fg150",c:"Grey Cast Iron (IS 210:2009)",g:"FG 150",d:7100,s:"IS 210:2009"},
+  {id:"fg200",c:"Grey Cast Iron (IS 210:2009)",g:"FG 200",d:7150,s:"IS 210:2009"},
+  {id:"fg260",c:"Grey Cast Iron (IS 210:2009)",g:"FG 260",d:7200,s:"IS 210:2009"},
+  {id:"fg300",c:"Grey Cast Iron (IS 210:2009)",g:"FG 300",d:7200,s:"IS 210:2009"},
+  {id:"fg350",c:"Grey Cast Iron (IS 210:2009)",g:"FG 350",d:7250,s:"IS 210:2009"},
+  {id:"fg400",c:"Grey Cast Iron (IS 210:2009)",g:"FG 400",d:7300,s:"IS 210:2009"},
+  {id:"bm300",c:"Malleable Cast Iron (IS 2107)",g:"BM 300 – Blackheart",d:7200,s:"IS 2107"},
+  {id:"bm350",c:"Malleable Cast Iron (IS 2107)",g:"BM 350 – Blackheart",d:7200,s:"IS 2107"},
+  {id:"pm350",c:"Malleable Cast Iron (IS 2107)",g:"PM 350 – Pearlitic", d:7300,s:"IS 2107"},
+  {id:"pm450",c:"Malleable Cast Iron (IS 2107)",g:"PM 450 – Pearlitic", d:7300,s:"IS 2107"},
+  {id:"pm550",c:"Malleable Cast Iron (IS 2107)",g:"PM 550 – Pearlitic", d:7300,s:"IS 2107"},
+  {id:"sg400",c:"SG Iron / Ductile Iron (IS 1865)",g:"SG 400-12 / GJS-400-15",d:7100,s:"IS 1865"},
+  {id:"sg500",c:"SG Iron / Ductile Iron (IS 1865)",g:"SG 500-7  / GJS-500-7", d:7100,s:"IS 1865"},
+  {id:"sg600",c:"SG Iron / Ductile Iron (IS 1865)",g:"SG 600-3  / GJS-600-3", d:7100,s:"IS 1865"},
+  {id:"sg700",c:"SG Iron / Ductile Iron (IS 1865)",g:"SG 700-2  / GJS-700-2", d:7200,s:"IS 1865"},
+  {id:"sg800",c:"SG Iron / Ductile Iron (IS 1865)",g:"SG 800-2  / GJS-800-2", d:7200,s:"IS 1865"},
+  {id:"al1050",c:"Aluminum Alloys (IS 733/736)",g:"1050A / E-Al99.5",       d:2710,s:"IS 736"},
+  {id:"al1100",c:"Aluminum Alloys (IS 733/736)",g:"1100  / Al99.0Cu",       d:2710,s:"IS 736"},
+  {id:"al2014",c:"Aluminum Alloys (IS 733/736)",g:"2014 T6 / AlCu4SiMg",   d:2800,s:"IS 736"},
+  {id:"al2024",c:"Aluminum Alloys (IS 733/736)",g:"2024 T4 / AlCu4Mg1",    d:2780,s:"IS 736"},
+  {id:"al5052",c:"Aluminum Alloys (IS 733/736)",g:"5052 H32 / AlMg2.5",    d:2680,s:"IS 736"},
+  {id:"al5083",c:"Aluminum Alloys (IS 733/736)",g:"5083 H116 / AlMg4.5Mn", d:2660,s:"IS 736"},
+  {id:"al6061",c:"Aluminum Alloys (IS 733/736)",g:"6061 T6 / AlMg1SiCu",   d:2700,s:"IS 736"},
+  {id:"al6063",c:"Aluminum Alloys (IS 733/736)",g:"6063 T5 / AlMg0.7Si",   d:2700,s:"IS 736"},
+  {id:"al7075",c:"Aluminum Alloys (IS 733/736)",g:"7075 T6 / AlZn5.5MgCu", d:2810,s:"IS 736"},
+  {id:"cu-etp", c:"Copper (IS 191/407)",g:"ETP Copper / Cu-ETP (C11000)",  d:8900,s:"IS 191"},
+  {id:"cu-ofhc",c:"Copper (IS 191/407)",g:"OFHC Copper / Cu-OF (C10200)",  d:8940,s:"IS 191"},
+  {id:"cu-dhp", c:"Copper (IS 191/407)",g:"DHP Copper  / Cu-DHP (C12200)", d:8900,s:"IS 191"},
+  {id:"b6040",c:"Brass (IS 319/407)",g:"Brass 60/40 / CuZn40 (C28000)",   d:8500,s:"IS 319"},
+  {id:"b7030",c:"Brass (IS 319/407)",g:"Cartridge Brass 70/30 / CuZn30",  d:8530,s:"IS 319"},
+  {id:"b8020",c:"Brass (IS 319/407)",g:"Brass 80/20 / CuZn20",            d:8600,s:"IS 319"},
+  {id:"b-fc",  c:"Brass (IS 319/407)",g:"Free Cutting Brass / CuZn39Pb3", d:8490,s:"IS 319"},
+  {id:"ltb4",   c:"Bronze (IS 318)",g:"Leaded Tin Bronze LTB4 / C93700", d:8800,s:"IS 318"},
+  {id:"pb-a",   c:"Bronze (IS 318)",g:"Phosphor Bronze Gr. A / CuSn5",   d:8860,s:"IS 318"},
+  {id:"pb-c",   c:"Bronze (IS 318)",g:"Phosphor Bronze Gr. C / CuSn8",   d:8800,s:"IS 318"},
+  {id:"albrnz", c:"Bronze (IS 318)",g:"Aluminium Bronze / CuAl10Fe3",    d:7600,s:"IS 318"},
+  {id:"gunmtl", c:"Bronze (IS 318)",g:"Gunmetal / G-CuSn10Zn2",          d:8750,s:"IS 318"},
+  {id:"in600",c:"Nickel Alloys",g:"Inconel 600 / UNS N06600",   d:8470,s:"ASTM B166"},
+  {id:"in625",c:"Nickel Alloys",g:"Inconel 625 / UNS N06625",   d:8440,s:"ASTM B443"},
+  {id:"hc276",c:"Nickel Alloys",g:"Hastelloy C-276 / N10276",   d:8890,s:"ASTM B575"},
+  {id:"mn400",c:"Nickel Alloys",g:"Monel 400 / UNS N04400",     d:8800,s:"ASTM B164"},
+  {id:"ti-g1",c:"Titanium",g:"Grade 1 / CP-Ti / UNS R50250",   d:4510,s:"ASTM B265"},
+  {id:"ti-g2",c:"Titanium",g:"Grade 2 / CP-Ti / UNS R50400",   d:4510,s:"ASTM B265"},
+  {id:"ti-g5",c:"Titanium",g:"Grade 5 / Ti-6Al-4V / R56400",   d:4430,s:"ASTM B265"},
+  {id:"pb-p",c:"Lead (IS 27)",g:"Commercial Lead 99.9%", d:11340,s:"IS 27"},
+  {id:"pb-h",c:"Lead (IS 27)",g:"Hard Lead Pb-Sb 6%",    d:10900,s:"IS 27"},
+  {id:"zn-p", c:"Zinc / Zinc Alloys (IS 209/742)",g:"Zinc 99.9% (IS 209)",     d:7133,s:"IS 209"},
+  {id:"zk3",  c:"Zinc / Zinc Alloys (IS 209/742)",g:"ZAMAK 3 / ZnAl4",         d:6600,s:"IS 742"},
+  {id:"zk5",  c:"Zinc / Zinc Alloys (IS 209/742)",g:"ZAMAK 5 / ZnAl4Cu1",      d:6600,s:"IS 742"},
+  {id:"nr",   c:"Rubber",g:"Natural Rubber NR (IS 6396)",d:920, s:"IS 6396"},
+  {id:"cr-r", c:"Rubber",g:"Neoprene CR (IS 6395)",      d:1230,s:"IS 6395"},
+  {id:"si-r", c:"Rubber",g:"Silicone Rubber VMQ",        d:1200,s:"—"},
+  {id:"nbr",  c:"Rubber",g:"Nitrile NBR (IS 6395)",      d:1000,s:"IS 6395"},
+  {id:"epdm", c:"Rubber",g:"EPDM (IS 11149)",            d:1140,s:"IS 11149"},
+  {id:"sbr",  c:"Rubber",g:"SBR (IS 6395)",              d:1050,s:"IS 6395"},
+  {id:"fkm",  c:"Rubber",g:"Viton FKM",                  d:1850,s:"ASTM D2000"},
+  {id:"pur",  c:"Rubber",g:"Polyurethane PU",            d:1200,s:"—"},
+  {id:"pa6",   c:"Engineering Plastics",g:"Nylon PA6 (IS 11197)",             d:1140,s:"IS 11197"},
+  {id:"pa66",  c:"Engineering Plastics",g:"Nylon PA66 (IS 11197)",            d:1150,s:"IS 11197"},
+  {id:"hdpe",  c:"Engineering Plastics",g:"HDPE (IS 2508)",                   d:960, s:"IS 2508"},
+  {id:"ldpe",  c:"Engineering Plastics",g:"LDPE (IS 2508)",                   d:920, s:"IS 2508"},
+  {id:"pvcr",  c:"Engineering Plastics",g:"PVC Rigid (IS 10151)",             d:1400,s:"IS 10151"},
+  {id:"pvcf",  c:"Engineering Plastics",g:"PVC Flexible (IS 10150)",          d:1200,s:"IS 10150"},
+  {id:"pp",    c:"Engineering Plastics",g:"Polypropylene PP (IS 10975)",       d:910, s:"IS 10975"},
+  {id:"pmma",  c:"Engineering Plastics",g:"Acrylic PMMA (IS 13201)",          d:1190,s:"IS 13201"},
+  {id:"abs",   c:"Engineering Plastics",g:"ABS (IS 11156)",                   d:1050,s:"IS 11156"},
+  {id:"pc",    c:"Engineering Plastics",g:"Polycarbonate PC (IS 13567)",       d:1200,s:"IS 13567"},
+  {id:"ptfe",  c:"Engineering Plastics",g:"PTFE / Teflon (IS 10930)",         d:2200,s:"IS 10930"},
+  {id:"uhmw",  c:"Engineering Plastics",g:"UHMWPE",                           d:930, s:"ASTM D4020"},
+  {id:"pom",   c:"Engineering Plastics",g:"POM / Acetal / Delrin (IS 15219)", d:1410,s:"IS 15219"},
+  {id:"peek",  c:"Engineering Plastics",g:"PEEK",                             d:1320,s:"ASTM D6262"},
+  {id:"pei",   c:"Engineering Plastics",g:"PEI (Ultem)",                      d:1280,s:"ASTM D5205"},
+  {id:"teak",c:"Wood",g:"Teak (IS 12020)",            d:650,s:"IS 12020"},
+  {id:"sal", c:"Wood",g:"Sal Wood (IS 12020)",         d:870,s:"IS 12020"},
+  {id:"ply", c:"Wood",g:"Commercial Plywood (IS 303)", d:680,s:"IS 303"},
+  {id:"mdf", c:"Wood",g:"MDF Board (IS 12406)",        d:750,s:"IS 12406"},
+  {id:"rbwd",c:"Wood",g:"Rubber Wood",                 d:600,s:"IS 12020"},
+  {id:"gl-f",c:"Glass",g:"Float Glass (IS 2835)",         d:2500,s:"IS 2835"},
+  {id:"gl-t",c:"Glass",g:"Toughened Glass (IS 2553)",     d:2500,s:"IS 2553"},
+  {id:"gl-l",c:"Glass",g:"Laminated Glass (IS 6280)",     d:2500,s:"IS 6280"},
+  {id:"grp", c:"FRP / GRP Composites",g:"GRP / GFRP (IS 6746)", d:1850,s:"IS 6746"},
+  {id:"cfrp",c:"FRP / GRP Composites",g:"Carbon FRP (CFRP)",    d:1600,s:"ASTM D3039"},
+  {id:"m20",c:"Concrete (IS 456:2000)",g:"M20 Concrete",d:2400,s:"IS 456:2000"},
+  {id:"m25",c:"Concrete (IS 456:2000)",g:"M25 Concrete",d:2400,s:"IS 456:2000"},
+  {id:"m30",c:"Concrete (IS 456:2000)",g:"M30 Concrete",d:2400,s:"IS 456:2000"},
+  {id:"m40",c:"Concrete (IS 456:2000)",g:"M40 Concrete",d:2400,s:"IS 456:2000"},
+];
+
+/* ═══════════════════════════════════════════════════════════════
+   SHAPE DATABASE — 22 shapes with formulas (volume in m³)
+   Cross-section dims in mm, running Length in metres (mill convention)
+   ═══════════════════════════════════════════════════════════════ */
+const SHAPES = [
+  {id:"round_bar",name:"Round Bar",cat:"Solid Sections",sym:"⬤",
+   dims:[{k:"D",l:"Diameter (D)",u:"mm"},{k:"L",l:"Length (L)",u:"m"}],
+   formula:v=>(Math.PI/4)*Math.pow(v.D/1e3,2)*v.L,
+   desc:"Solid circular cross-section bar"},
+  {id:"square_bar",name:"Square Bar",cat:"Solid Sections",sym:"■",
+   dims:[{k:"A",l:"Side (A)",u:"mm"},{k:"L",l:"Length (L)",u:"m"}],
+   formula:v=>Math.pow(v.A/1e3,2)*v.L,
+   desc:"Solid square cross-section bar"},
+  {id:"flat_bar",name:"Flat / Rectangular Bar",cat:"Solid Sections",sym:"▬",
+   dims:[{k:"W",l:"Width (W)",u:"mm"},{k:"T",l:"Thickness (T)",u:"mm"},{k:"L",l:"Length (L)",u:"m"}],
+   formula:v=>(v.W/1e3)*(v.T/1e3)*v.L,
+   desc:"Flat bar or rectangular section"},
+  {id:"hex_bar",name:"Hexagonal Bar",cat:"Solid Sections",sym:"⬡",
+   dims:[{k:"AF",l:"Across Flats (AF)",u:"mm"},{k:"L",l:"Length (L)",u:"m"}],
+   formula:v=>(Math.sqrt(3)/2)*Math.pow(v.AF/1e3,2)*v.L,
+   desc:"Regular hexagonal bar — AF = across flats"},
+  {id:"oct_bar",name:"Octagonal Bar",cat:"Solid Sections",sym:"⯃",
+   dims:[{k:"AF",l:"Across Flats (AF)",u:"mm"},{k:"L",l:"Length (L)",u:"m"}],
+   formula:v=>2*(Math.SQRT2-1)*Math.pow(v.AF/1e3,2)*v.L,
+   desc:"Regular octagonal bar — AF = across flats"},
+  {id:"rnd_pipe",name:"Round Pipe / CHS",cat:"Hollow Sections",sym:"◎",
+   dims:[{k:"OD",l:"Outer Dia (OD)",u:"mm"},{k:"WT",l:"Wall Thickness (t)",u:"mm"},{k:"L",l:"Length (L)",u:"m"}],
+   formula:v=>{const od=v.OD/1e3,t=v.WT/1e3,l=v.L,idm=od-2*t;if(idm<=0)return NaN;return(Math.PI/4)*(od*od-idm*idm)*l},
+   desc:"Circular Hollow Section / pipe / tube"},
+  {id:"shs",name:"Square Hollow Section (SHS)",cat:"Hollow Sections",sym:"□",
+   dims:[{k:"A",l:"Side (A)",u:"mm"},{k:"T",l:"Wall Thickness (t)",u:"mm"},{k:"L",l:"Length (L)",u:"m"}],
+   formula:v=>{const a=v.A/1e3,t=v.T/1e3,l=v.L,ai=a-2*t;if(ai<=0)return NaN;return(a*a-ai*ai)*l},
+   desc:"Square Hollow Section"},
+  {id:"rhs",name:"Rectangular Hollow Section (RHS)",cat:"Hollow Sections",sym:"▭",
+   dims:[{k:"A",l:"Width (A)",u:"mm"},{k:"B",l:"Height (B)",u:"mm"},{k:"T",l:"Wall Thickness (t)",u:"mm"},{k:"L",l:"Length (L)",u:"m"}],
+   formula:v=>{const a=v.A/1e3,b=v.B/1e3,t=v.T/1e3,l=v.L,ai=a-2*t,bi=b-2*t;if(ai<=0||bi<=0)return NaN;return(a*b-ai*bi)*l},
+   desc:"Rectangular Hollow Section"},
+  {id:"eq_angle",name:"Equal Angle (ISA)",cat:"Structural Sections",sym:"∟",
+   dims:[{k:"A",l:"Leg Length (A)",u:"mm"},{k:"T",l:"Thickness (t)",u:"mm"},{k:"L",l:"Length (L)",u:"m"}],
+   formula:v=>{const a=v.A/1e3,t=v.T/1e3,l=v.L;if(v.T>=v.A)return NaN;return(2*a*t-t*t)*l},
+   desc:"Equal leg angle (ISA) — L-section"},
+  {id:"uneq_angle",name:"Unequal Angle (ISA)",cat:"Structural Sections",sym:"⌐",
+   dims:[{k:"A",l:"Long Leg (A)",u:"mm"},{k:"B",l:"Short Leg (B)",u:"mm"},{k:"T",l:"Thickness (t)",u:"mm"},{k:"L",l:"Length (L)",u:"m"}],
+   formula:v=>{if(v.T>=v.A||v.T>=v.B)return NaN;return(v.A/1e3+v.B/1e3-v.T/1e3)*(v.T/1e3)*v.L},
+   desc:"Unequal leg angle (ISA)"},
+  {id:"t_bar",name:"T-Bar / T-Section",cat:"Structural Sections",sym:"⊤",
+   dims:[{k:"BF",l:"Flange Width",u:"mm"},{k:"TF",l:"Flange Thick.",u:"mm"},{k:"H",l:"Total Height",u:"mm"},{k:"TW",l:"Web Thick.",u:"mm"},{k:"L",l:"Length",u:"m"}],
+   formula:v=>{const bf=v.BF/1e3,tf=v.TF/1e3,h=v.H/1e3,tw=v.TW/1e3,l=v.L,hw=h-tf;if(hw<=0)return NaN;return(bf*tf+hw*tw)*l},
+   desc:"T-bar with flange and web"},
+  {id:"i_beam",name:"I-Beam (ISMB / ISJB / ISLB)",cat:"Structural Sections",sym:"I",
+   dims:[{k:"H",l:"Total Height",u:"mm"},{k:"BF",l:"Flange Width",u:"mm"},{k:"TF",l:"Flange Thick.",u:"mm"},{k:"TW",l:"Web Thick.",u:"mm"},{k:"L",l:"Length",u:"m"}],
+   formula:v=>{const h=v.H/1e3,bf=v.BF/1e3,tf=v.TF/1e3,tw=v.TW/1e3,l=v.L,hw=h-2*tf;if(hw<=0)return NaN;return(2*bf*tf+hw*tw)*l},
+   desc:"I-beam, parallel-flange approximation — covers ISMB, ISJB, ISLB (IS 808) by manual size entry"},
+  {id:"h_beam",name:"H-Beam / Wide Flange (ISWB / ISHB)",cat:"Structural Sections",sym:"H",
+   dims:[{k:"H",l:"Total Height",u:"mm"},{k:"BF",l:"Flange Width",u:"mm"},{k:"TF",l:"Flange Thick.",u:"mm"},{k:"TW",l:"Web Thick.",u:"mm"},{k:"L",l:"Length",u:"m"}],
+   formula:v=>{const h=v.H/1e3,bf=v.BF/1e3,tf=v.TF/1e3,tw=v.TW/1e3,l=v.L,hw=h-2*tf;if(hw<=0)return NaN;return(2*bf*tf+hw*tw)*l},
+   desc:"Wide flange beam, parallel-flange approximation — covers ISWB, ISHB (IS 808) by manual size entry"},
+  {id:"channel",name:"Channel (ISMC / ISJC / ISLC)",cat:"Structural Sections",sym:"C",
+   dims:[{k:"H",l:"Web Height",u:"mm"},{k:"BF",l:"Flange Width",u:"mm"},{k:"TF",l:"Flange Thick.",u:"mm"},{k:"TW",l:"Web Thick.",u:"mm"},{k:"L",l:"Length",u:"m"}],
+   formula:v=>{const h=v.H/1e3,bf=v.BF/1e3,tf=v.TF/1e3,tw=v.TW/1e3,l=v.L,hw=h-2*tf;if(hw<=0)return NaN;return(2*bf*tf+hw*tw)*l},
+   desc:"C-channel, parallel-flange approximation — covers ISMC, ISJC, ISLC (IS 808) by manual size entry"},
+  {id:"z_section",name:"Z-Purlin / Z-Section",cat:"Structural Sections",sym:"Z",
+   dims:[{k:"H",l:"Web Height",u:"mm"},{k:"BF",l:"Flange Width",u:"mm"},{k:"TF",l:"Flange Thick.",u:"mm"},{k:"TW",l:"Web Thick.",u:"mm"},{k:"L",l:"Length",u:"m"}],
+   formula:v=>{const h=v.H/1e3,bf=v.BF/1e3,tf=v.TF/1e3,tw=v.TW/1e3,l=v.L;return(2*bf*tf+h*tw)*l},
+   desc:"Z-section / Z-purlin"},
+  {id:"flat_plate",name:"Flat Plate / Sheet",cat:"Plates & Sheets",sym:"⬜",
+   dims:[{k:"L",l:"Length (L)",u:"mm"},{k:"W",l:"Width (W)",u:"mm"},{k:"T",l:"Thickness (T)",u:"mm"}],
+   formula:v=>(v.L/1e3)*(v.W/1e3)*(v.T/1e3),
+   desc:"Rectangular flat plate or sheet"},
+  {id:"circ_plate",name:"Circular Plate / Disc",cat:"Plates & Sheets",sym:"⚫",
+   dims:[{k:"D",l:"Diameter (D)",u:"mm"},{k:"T",l:"Thickness (T)",u:"mm"}],
+   formula:v=>(Math.PI/4)*Math.pow(v.D/1e3,2)*(v.T/1e3),
+   desc:"Solid circular plate / disc / flange"},
+  {id:"ring",name:"Ring / Annular Disc",cat:"Special Shapes",sym:"⊙",
+   dims:[{k:"OD",l:"Outer Dia (OD)",u:"mm"},{k:"ID",l:"Inner Dia (ID)",u:"mm"},{k:"T",l:"Thickness (T)",u:"mm"}],
+   formula:v=>{if(v.ID>=v.OD)return NaN;return(Math.PI/4)*(Math.pow(v.OD/1e3,2)-Math.pow(v.ID/1e3,2))*(v.T/1e3)},
+   desc:"Ring / washer / annular disc"},
+  {id:"sphere",name:"Solid Sphere / Ball",cat:"Special Shapes",sym:"●",
+   dims:[{k:"D",l:"Diameter (D)",u:"mm"}],
+   formula:v=>(Math.PI/6)*Math.pow(v.D/1e3,3),
+   desc:"Solid sphere"},
+  {id:"hol_sphere",name:"Hollow Sphere / Shell",cat:"Special Shapes",sym:"○",
+   dims:[{k:"OD",l:"Outer Dia (OD)",u:"mm"},{k:"T",l:"Wall Thickness (t)",u:"mm"}],
+   formula:v=>{const od=v.OD/1e3,idm=v.OD-2*v.T;if(idm<=0)return NaN;const id=idm/1e3;return(Math.PI/6)*(od*od*od-id*id*id)},
+   desc:"Hollow spherical shell"},
+  {id:"cone",name:"Solid Cone",cat:"Special Shapes",sym:"▲",
+   dims:[{k:"D",l:"Base Diameter (D)",u:"mm"},{k:"H",l:"Height (H)",u:"mm"}],
+   formula:v=>(Math.PI/12)*Math.pow(v.D/1e3,2)*(v.H/1e3),
+   desc:"Solid cone"},
+  {id:"cylinder",name:"Solid Cylinder",cat:"Special Shapes",sym:"🔵",
+   dims:[{k:"D",l:"Diameter (D)",u:"mm"},{k:"H",l:"Height (H)",u:"mm"}],
+   formula:v=>(Math.PI/4)*Math.pow(v.D/1e3,2)*(v.H/1e3),
+   desc:"Solid cylinder (slab / puck / boss)"},
+];
+
+/* ═══════════════════════════════════════════════════════════════
+   UTILITIES
+   ═══════════════════════════════════════════════════════════════ */
+const getShape = id => SHAPES.find(s=>s.id===id);
+const getMat   = id => MAT.find(m=>m.id===id);
+const SHAPE_CATS = [...new Set(SHAPES.map(s=>s.cat))];
+const MAT_CATS   = [...new Set(MAT.map(m=>m.c))];
+
+function computeWeight(shapeId, dims, matId){
+  const sh=getShape(shapeId), mt=getMat(matId);
+  if(!sh||!mt) return null;
+  const ok=sh.dims.every(d=>dims[d.k]&&parseFloat(dims[d.k])>0);
+  if(!ok) return null;
+  try{
+    const nums=Object.fromEntries(sh.dims.map(d=>[d.k,parseFloat(dims[d.k])]));
+    const vol=sh.formula(nums);
+    return isFinite(vol)&&vol>0?vol*mt.d:null;
+  }catch{return null}
+}
+function fmtW(kg,dec=3){
+  if(kg===null||kg===undefined) return "—";
+  if(kg>=1000) return (kg/1000).toFixed(dec)+" T";
+  if(kg>=1)    return kg.toFixed(dec)+" kg";
+  return (kg*1000).toFixed(2)+" g";
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   SHAPE CROSS-SECTION SVG DIAGRAMS
+   ═══════════════════════════════════════════════════════════════ */
+function shapeSVG(shapeId){
+  const f="#e0e7ff", s="#4338ca", sw=2.5;
+  const defs='<defs><marker id="ah" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6" fill="none" stroke="#4338ca" stroke-width="1.2"/></marker></defs>';
+  const LA=(x1,y1,x2,y2)=>'<line x1="'+x1+'" y1="'+y1+'" x2="'+x2+'" y2="'+y2+'" stroke="#4338ca" stroke-width="1.5" marker-end="url(#ah)" marker-start="url(#ah)"/>';
+  const AR=(x1,y1,x2,y2)=>'<line x1="'+x1+'" y1="'+y1+'" x2="'+x2+'" y2="'+y2+'" stroke="#4338ca" stroke-width="1.5" marker-end="url(#ah)"/>';
+  const AR2=(x1,y1,x2,y2,c)=>'<line x1="'+x1+'" y1="'+y1+'" x2="'+x2+'" y2="'+y2+'" stroke="'+c+'" stroke-width="1.5" marker-end="url(#ah)"/>';
+  const T=(x,y,ch,a,c)=>'<text x="'+x+'" y="'+y+'" text-anchor="'+(a||'middle')+'" font-size="11" font-family="ui-monospace,monospace" font-weight="700" fill="'+(c||'#4338ca')+'">'+ch+'</text>';
+
+  const map={
+    round_bar:'<svg viewBox="0 0 130 130">'+defs+
+      '<circle cx="65" cy="65" r="55" fill="'+f+'" stroke="'+s+'" stroke-width="'+sw+'"/>'+
+      AR(65,65,120,65)+T(93,58,"D/2")+
+      '<line x1="10" y1="65" x2="120" y2="65" stroke="#6366f1" stroke-width="1" stroke-dasharray="4,3"/>'+
+      T(65,20,"Round Bar")+'</svg>',
+    square_bar:'<svg viewBox="0 0 130 130">'+defs+
+      '<rect x="15" y="15" width="100" height="100" fill="'+f+'" stroke="'+s+'" stroke-width="'+sw+'"/>'+
+      LA(15,118,115,118)+T(65,116,"A")+LA(120,15,120,115)+T(127,67,"A","start")+'</svg>',
+    flat_bar:'<svg viewBox="0 0 160 90">'+defs+
+      '<rect x="10" y="22" width="140" height="46" fill="'+f+'" stroke="'+s+'" stroke-width="'+sw+'"/>'+
+      LA(10,78,150,78)+T(80,87,"W")+LA(155,22,155,68)+T(158,47,"T","start")+'</svg>',
+    hex_bar:'<svg viewBox="0 0 130 130">'+defs+
+      '<polygon points="65,7 110,32 110,82 65,107 20,82 20,32" fill="'+f+'" stroke="'+s+'" stroke-width="'+sw+'"/>'+
+      '<line x1="20" y1="57" x2="110" y2="57" stroke="#6366f1" stroke-width="1" stroke-dasharray="4,3"/>'+
+      T(65,52,"AF")+T(65,20,"Hex Bar")+'</svg>',
+    oct_bar:'<svg viewBox="0 0 130 130">'+defs+
+      '<polygon points="40,10 90,10 120,40 120,90 90,120 40,120 10,90 10,40" fill="'+f+'" stroke="'+s+'" stroke-width="'+sw+'"/>'+
+      '<line x1="10" y1="65" x2="120" y2="65" stroke="#6366f1" stroke-width="1" stroke-dasharray="4,3"/>'+T(65,60,"AF")+'</svg>',
+    rnd_pipe:'<svg viewBox="0 0 130 130">'+defs+
+      '<circle cx="65" cy="65" r="58" fill="'+f+'" stroke="'+s+'" stroke-width="'+sw+'"/>'+
+      '<circle cx="65" cy="65" r="36" fill="white" stroke="'+s+'" stroke-width="'+sw+'"/>'+
+      AR(65,65,123,65)+T(93,58,"OD/2")+AR2(65,65,101,65,"#7c3aed")+T(83,77,"ID/2",null,"#7c3aed")+'</svg>',
+    shs:'<svg viewBox="0 0 130 130">'+defs+
+      '<rect x="8" y="8" width="114" height="114" fill="'+f+'" stroke="'+s+'" stroke-width="'+sw+'"/>'+
+      '<rect x="28" y="28" width="74" height="74" fill="white" stroke="'+s+'" stroke-width="'+sw+'"/>'+
+      LA(8,122,122,122)+T(65,120,"A")+LA(126,8,126,28)+T(128,20,"t","start","#7c3aed")+'</svg>',
+    rhs:'<svg viewBox="0 0 160 110">'+defs+
+      '<rect x="8" y="8" width="144" height="94" fill="'+f+'" stroke="'+s+'" stroke-width="'+sw+'"/>'+
+      '<rect x="24" y="22" width="112" height="66" fill="white" stroke="'+s+'" stroke-width="'+sw+'"/>'+
+      LA(8,107,152,107)+T(80,105,"A")+LA(156,8,156,102)+T(158,57,"B","start","#7c3aed")+
+      LA(3,8,3,22)+T(7,17,"t","start","#0ea5e9")+'</svg>',
+    eq_angle:'<svg viewBox="0 0 130 130">'+defs+
+      '<polygon points="10,10 10,120 30,120 30,30 120,30 120,10" fill="'+f+'" stroke="'+s+'" stroke-width="'+sw+'"/>'+
+      LA(4,10,4,120)+T(0,68,"A","start")+LA(10,125,120,125)+T(65,123,"A",null,"#7c3aed")+
+      LA(125,10,125,30)+T(128,22,"t","start","#0ea5e9")+'</svg>',
+    uneq_angle:'<svg viewBox="0 0 130 130">'+defs+
+      '<polygon points="10,10 10,120 30,120 30,30 120,30 120,10" fill="'+f+'" stroke="'+s+'" stroke-width="'+sw+'"/>'+
+      LA(4,10,4,120)+T(0,68,"A","start")+LA(10,125,120,125)+T(65,123,"B",null,"#7c3aed")+'</svg>',
+    t_bar:'<svg viewBox="0 0 130 150">'+defs+
+      '<rect x="15" y="20" width="100" height="20" fill="'+f+'" stroke="'+s+'" stroke-width="'+sw+'"/>'+
+      '<rect x="56" y="40" width="18" height="90" fill="'+f+'" stroke="'+s+'" stroke-width="'+sw+'"/>'+
+      LA(15,147,115,147)+T(65,145,"BF")+LA(127,20,127,130)+T(130,77,"H","start","#7c3aed")+'</svg>',
+    i_beam:'<svg viewBox="0 0 130 150">'+defs+
+      '<rect x="8" y="8" width="114" height="22" fill="'+f+'" stroke="'+s+'" stroke-width="'+sw+'"/>'+
+      '<rect x="8" y="120" width="114" height="22" fill="'+f+'" stroke="'+s+'" stroke-width="'+sw+'"/>'+
+      '<rect x="56" y="30" width="18" height="90" fill="'+f+'" stroke="'+s+'" stroke-width="'+sw+'"/>'+
+      LA(8,147,122,147)+T(65,145,"BF")+LA(127,8,127,142)+T(130,77,"H","start","#7c3aed")+
+      LA(3,8,3,30)+T(6,21,"tf","start","#0ea5e9")+'</svg>',
+    h_beam:'<svg viewBox="0 0 140 150">'+defs+
+      '<rect x="5" y="5" width="130" height="20" fill="'+f+'" stroke="'+s+'" stroke-width="'+sw+'"/>'+
+      '<rect x="5" y="125" width="130" height="20" fill="'+f+'" stroke="'+s+'" stroke-width="'+sw+'"/>'+
+      '<rect x="61" y="25" width="18" height="100" fill="'+f+'" stroke="'+s+'" stroke-width="'+sw+'"/>'+
+      LA(5,148,135,148)+T(70,146,"BF")+LA(140,5,140,145)+T(143,77,"H","start","#7c3aed")+'</svg>',
+    channel:'<svg viewBox="0 0 110 140">'+defs+
+      '<polygon points="10,8 95,8 95,26 28,26 28,114 95,114 95,132 10,132" fill="'+f+'" stroke="'+s+'" stroke-width="'+sw+'"/>'+
+      LA(10,138,95,138)+T(53,136,"BF")+LA(4,8,4,132)+T(0,72,"H","start","#7c3aed")+
+      LA(98,8,98,26)+T(102,19,"tf","start","#0ea5e9")+'</svg>',
+    z_section:'<svg viewBox="0 0 130 130">'+defs+
+      '<polygon points="10,8 100,8 100,28 40,28 40,102 100,102 100,122 10,122 10,102 70,102 70,28 10,28" fill="'+f+'" stroke="'+s+'" stroke-width="'+sw+'"/>'+
+      T(65,70,"Z")+'</svg>',
+    flat_plate:'<svg viewBox="0 0 170 100">'+defs+
+      '<polygon points="20,15 140,15 160,32 160,72 40,72 20,55" fill="'+f+'" stroke="'+s+'" stroke-width="'+sw+'"/>'+
+      '<polygon points="140,15 160,32 160,72 140,55" fill="#c7d2fe" stroke="'+s+'" stroke-width="'+sw+'"/>'+
+      '<polygon points="20,55 40,72 160,72 140,55" fill="#a5b4fc" stroke="'+s+'" stroke-width="'+sw+'"/>'+
+      LA(20,82,140,82)+T(80,80,"W")+LA(164,32,164,72)+T(167,54,"T","start","#7c3aed")+
+      LA(20,88,160,88)+T(90,96,"L (length)",null,"#0ea5e9")+'</svg>',
+    circ_plate:'<svg viewBox="0 0 130 95">'+defs+
+      '<ellipse cx="65" cy="42" rx="57" ry="18" fill="'+f+'" stroke="'+s+'" stroke-width="'+sw+'"/>'+
+      '<ellipse cx="65" cy="60" rx="57" ry="18" fill="#c7d2fe" stroke="'+s+'" stroke-width="'+sw+'"/>'+
+      '<rect x="8" y="42" width="114" height="18" fill="#d4d4ff" stroke="'+s+'" stroke-width="'+sw+'"/>'+
+      AR(65,42,122,42)+T(93,36,"D/2")+LA(127,42,127,60)+T(130,53,"T","start","#7c3aed")+'</svg>',
+    ring:'<svg viewBox="0 0 130 130">'+defs+
+      '<circle cx="65" cy="65" r="58" fill="'+f+'" stroke="'+s+'" stroke-width="'+sw+'"/>'+
+      '<circle cx="65" cy="65" r="32" fill="white" stroke="'+s+'" stroke-width="'+sw+'"/>'+
+      AR(65,65,123,65)+T(94,58,"OD/2")+AR2(65,65,97,65,"#7c3aed")+T(81,77,"ID/2",null,"#7c3aed")+'</svg>',
+    sphere:'<svg viewBox="0 0 130 130"><defs><radialGradient id="sg" cx="35%" cy="35%"><stop offset="0%" stop-color="#eef2ff"/><stop offset="100%" stop-color="#818cf8"/></radialGradient>'+
+      '<marker id="ah" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6" fill="none" stroke="#4338ca" stroke-width="1.2"/></marker></defs>'+
+      '<circle cx="65" cy="65" r="57" fill="url(#sg)" stroke="'+s+'" stroke-width="'+sw+'"/>'+
+      '<ellipse cx="65" cy="65" rx="57" ry="18" fill="none" stroke="#6366f1" stroke-width="1" stroke-dasharray="5,3"/>'+
+      AR(65,65,122,65)+T(93,58,"D/2")+'</svg>',
+    hol_sphere:'<svg viewBox="0 0 130 130"><defs><radialGradient id="hsg" cx="35%" cy="35%"><stop offset="0%" stop-color="#e0e7ff"/><stop offset="100%" stop-color="#818cf8"/></radialGradient>'+
+      '<marker id="ah" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6" fill="none" stroke="#4338ca" stroke-width="1.2"/></marker></defs>'+
+      '<circle cx="65" cy="65" r="57" fill="url(#hsg)" stroke="'+s+'" stroke-width="'+sw+'"/>'+
+      '<circle cx="65" cy="65" r="40" fill="white" stroke="'+s+'" stroke-width="'+sw+'"/>'+
+      AR(65,65,122,65)+T(94,58,"OD/2")+LA(65,58,65,8)+T(65,6,"t")+'</svg>',
+    cone:'<svg viewBox="0 0 130 130">'+defs+
+      '<polygon points="65,8 120,118 10,118" fill="'+f+'" stroke="'+s+'" stroke-width="'+sw+'"/>'+
+      '<line x1="10" y1="118" x2="120" y2="118" stroke="'+s+'" stroke-width="'+sw+'"/>'+
+      LA(10,125,120,125)+T(65,123,"D")+LA(126,8,126,118)+T(130,65,"H","start","#7c3aed")+'</svg>',
+    cylinder:'<svg viewBox="0 0 130 120">'+defs+
+      '<ellipse cx="65" cy="28" rx="50" ry="16" fill="'+f+'" stroke="'+s+'" stroke-width="'+sw+'"/>'+
+      '<ellipse cx="65" cy="92" rx="50" ry="16" fill="'+f+'" stroke="'+s+'" stroke-width="'+sw+'"/>'+
+      '<line x1="15" y1="28" x2="15" y2="92" stroke="'+s+'" stroke-width="'+sw+'"/>'+
+      '<line x1="115" y1="28" x2="115" y2="92" stroke="'+s+'" stroke-width="'+sw+'"/>'+
+      AR(65,28,115,28)+T(90,22,"D/2")+LA(120,28,120,92)+T(123,62,"H","start","#7c3aed")+'</svg>',
+  };
+  return map[shapeId]||('<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:8px">'+
+    '<span style="font-size:60px;opacity:.2">'+(getShape(shapeId)?getShape(shapeId).sym:"?")+'</span>'+
+    '<span style="font-size:12px;color:#d1d5db">Diagram pending</span></div>');
+}
+
+// Small, clean pictogram per shape for use in list rows — deliberately no arrows/dimension
+// text (illegible at icon size); just a clear filled silhouette so the shape reads at a glance.
+function shapeIcon(shapeId){
+  const f="#c7d2fe", s="#4338ca", sw=1.6;
+  const svg = inner => '<svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">'+inner+'</svg>';
+  const shp = (d,extra) => '<path d="'+d+'" fill="'+f+'" stroke="'+s+'" stroke-width="'+sw+'" stroke-linejoin="round"'+(extra||'')+'/>';
+  const map = {
+    round_bar:  svg('<circle cx="12" cy="12" r="9" fill="'+f+'" stroke="'+s+'" stroke-width="'+sw+'"/>'),
+    square_bar: svg('<rect x="3.5" y="3.5" width="17" height="17" fill="'+f+'" stroke="'+s+'" stroke-width="'+sw+'"/>'),
+    flat_bar:   svg('<rect x="2" y="8" width="20" height="8" fill="'+f+'" stroke="'+s+'" stroke-width="'+sw+'"/>'),
+    hex_bar:    svg(shp("M12,2.5 L20,7.2 L20,16.8 L12,21.5 L4,16.8 L4,7.2 Z")),
+    oct_bar:    svg(shp("M8,3 L16,3 L21,8 L21,16 L16,21 L8,21 L3,16 L3,8 Z")),
+    rnd_pipe:   svg('<circle cx="12" cy="12" r="9.5" fill="'+f+'" stroke="'+s+'" stroke-width="'+sw+'"/><circle cx="12" cy="12" r="5" fill="#fff" stroke="'+s+'" stroke-width="'+sw+'"/>'),
+    shs:        svg('<rect x="2.5" y="2.5" width="19" height="19" fill="'+f+'" stroke="'+s+'" stroke-width="'+sw+'"/><rect x="8" y="8" width="8" height="8" fill="#fff" stroke="'+s+'" stroke-width="'+sw+'"/>'),
+    rhs:        svg('<rect x="1.5" y="5" width="21" height="14" fill="'+f+'" stroke="'+s+'" stroke-width="'+sw+'"/><rect x="6.5" y="8.5" width="11" height="7" fill="#fff" stroke="'+s+'" stroke-width="'+sw+'"/>'),
+    eq_angle:   svg(shp("M4,3 L8,3 L8,15.5 L20,15.5 L20,20 L4,20 Z")),
+    uneq_angle: svg(shp("M4,3 L8,3 L8,15.5 L20,15.5 L20,20 L4,20 Z")),
+    t_bar:      svg(shp("M3,3 L21,3 L21,8 L14,8 L14,21 L10,21 L10,8 L3,8 Z")),
+    i_beam:     svg(shp("M3,3 L21,3 L21,7.5 L14,7.5 L14,16.5 L21,16.5 L21,21 L3,21 L3,16.5 L10,16.5 L10,7.5 L3,7.5 Z")),
+    h_beam:     svg(shp("M3,3 L8,3 L8,10 L16,10 L16,3 L21,3 L21,21 L16,21 L16,14 L8,14 L8,21 L3,21 Z")),
+    channel:    svg(shp("M3,3 L18,3 L18,7 L8,7 L8,17 L18,17 L18,21 L3,21 Z")),
+    z_section:  svg(shp("M6,3 L19,3 L19,7 L11,7 L11,17 L19,17 L19,21 L6,21 L6,17 L13,17 L13,7 L6,7 Z")),
+    flat_plate: svg('<path d="M3,8 L15,8 L20,12 L20,17 L8,17 L3,13 Z" fill="'+f+'" stroke="'+s+'" stroke-width="'+sw+'" stroke-linejoin="round"/>'),
+    circ_plate: svg('<ellipse cx="12" cy="9" rx="9" ry="4" fill="'+f+'" stroke="'+s+'" stroke-width="'+sw+'"/><path d="M3,9 L3,14 A9,4 0 0,0 21,14 L21,9" fill="'+f+'" stroke="'+s+'" stroke-width="'+sw+'"/>'),
+    ring:       svg('<circle cx="12" cy="12" r="9.5" fill="'+f+'" stroke="'+s+'" stroke-width="'+sw+'"/><circle cx="12" cy="12" r="4.2" fill="#fff" stroke="'+s+'" stroke-width="'+sw+'"/>'),
+    sphere:     svg('<circle cx="12" cy="12" r="9" fill="'+f+'" stroke="'+s+'" stroke-width="'+sw+'"/><ellipse cx="12" cy="12" rx="9" ry="3" fill="none" stroke="'+s+'" stroke-width=".8" opacity=".5"/>'),
+    hol_sphere: svg('<circle cx="12" cy="12" r="9" fill="'+f+'" stroke="'+s+'" stroke-width="'+sw+'"/><circle cx="12" cy="12" r="6" fill="#fff" stroke="'+s+'" stroke-width="'+sw+'"/>'),
+    cone:       svg('<path d="M12,2.5 L20,20 L4,20 Z" fill="'+f+'" stroke="'+s+'" stroke-width="'+sw+'" stroke-linejoin="round"/>'),
+    cylinder:   svg('<ellipse cx="12" cy="6" rx="8" ry="3" fill="'+f+'" stroke="'+s+'" stroke-width="'+sw+'"/><path d="M4,6 L4,18 A8,3 0 0,0 20,18 L20,6" fill="'+f+'" stroke="'+s+'" stroke-width="'+sw+'"/><ellipse cx="12" cy="18" rx="8" ry="3" fill="none" stroke="'+s+'" stroke-width="'+sw+'"/>'),
+  };
+  return map[shapeId]||svg('<circle cx="12" cy="12" r="8" fill="none" stroke="'+s+'" stroke-width="'+sw+'"/>');
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   SEARCHABLE GROUPED DROPDOWN (vanilla)
+   ═══════════════════════════════════════════════════════════════ */
+function createDropdown(opts){
+  const {mount, options, grouped, placeholder, ariaLabel, iconFn} = opts;
+  const onChange = opts.onChange || function(){};
+  let value = "", open = false, query = "", panel = null;
+
+  const wrap = document.createElement("div");
+  wrap.className = "dd-wrap";
+  wrap.innerHTML =
+    '<button type="button" class="dd-trigger" aria-haspopup="listbox" aria-expanded="false" aria-label="'+escHtml(ariaLabel||placeholder)+'">'+
+      '<span class="dd-trigger-main"><span class="dd-trigger-icon" id="__ic"></span><span class="dd-trigger-label" id="__lbl">'+escHtml(placeholder)+'</span></span>'+
+      '<span class="dd-chevron">'+ICONS.chevronDown(15)+'</span>'+
+    '</button>';
+  mount.appendChild(wrap);
+
+  const trigger = wrap.querySelector(".dd-trigger");
+  const labelEl = wrap.querySelector("#__lbl");
+  labelEl.removeAttribute("id");
+  labelEl.classList.add("muted-label");
+  const iconEl = wrap.querySelector("#__ic");
+  iconEl.removeAttribute("id");
+  const chevron = wrap.querySelector(".dd-chevron");
+
+  function optionHtml(o, i){
+    const selected = o.value === value;
+    const icon = iconFn ? '<span class="dd-option-icon">'+iconFn(o.value)+'</span>' : '';
+    return '<button type="button" class="dd-option'+(selected?' selected':'')+'" role="option" aria-selected="'+selected+'" data-value="'+escHtml(o.value)+'" style="animation-delay:'+(i*16)+'ms">'+
+      icon+
+      '<span class="dd-option-label">'+escHtml(o.label)+'</span>'+
+      (selected?ICONS.check(13):'')+
+      '</button>';
+  }
+
+  function renderList(){
+    if(!panel) return;
+    const listEl = panel.querySelector(".dd-list");
+    const lq = query.toLowerCase();
+    const filtered = options.filter(o=>!lq||o.label.toLowerCase().includes(lq)||(o.cat||"").toLowerCase().includes(lq));
+    if(filtered.length===0){ listEl.innerHTML = '<div class="dd-empty">No results found</div>'; return; }
+    if(grouped){
+      const groups = {};
+      filtered.forEach(o=>{ (groups[o.cat||"Other"] = groups[o.cat||"Other"]||[]).push(o); });
+      let html = "", idx = 0;
+      Object.keys(groups).forEach(cat=>{
+        html += '<div class="dd-group-label">'+escHtml(cat)+'</div>';
+        groups[cat].forEach(o=>{ html += optionHtml(o, idx); idx++; });
+      });
+      listEl.innerHTML = html;
+    }else{
+      listEl.innerHTML = filtered.map((o,i)=>optionHtml(o,i)).join("");
+    }
+    listEl.querySelectorAll(".dd-option").forEach(el=>{
+      el.addEventListener("click", ()=>{
+        value = el.getAttribute("data-value");
+        updateTrigger();
+        closePanel();
+        onChange(value);
+      });
+    });
+  }
+
+  function updateTrigger(){
+    const sel = options.find(o=>o.value===value);
+    if(sel){
+      labelEl.textContent = sel.label;
+      labelEl.classList.remove("muted-label");
+      labelEl.classList.add("selected-label");
+      iconEl.innerHTML = iconFn ? iconFn(sel.value) : "";
+      iconEl.style.display = iconFn ? "inline-flex" : "none";
+    }else{
+      labelEl.textContent = placeholder;
+      labelEl.classList.add("muted-label");
+      labelEl.classList.remove("selected-label");
+      iconEl.innerHTML = "";
+      iconEl.style.display = "none";
+    }
+  }
+
+  function onOutsideClick(e){ if(!wrap.contains(e.target) && !(panel&&panel.contains(e.target))) closePanel(); }
+  function onKeyDown(e){ if(e.key==="Escape"){ closePanel(); trigger.focus(); } }
+  function onScrollOrResize(e){
+    if(e && e.type==="scroll" && panel && e.target && panel.contains && panel.contains(e.target)) return;
+    closePanel();
+  }
+
+  function positionPanel(){
+    const r = trigger.getBoundingClientRect();
+    const margin = 12;
+    const spaceBelow = window.innerHeight - r.bottom - margin;
+    const spaceAbove = r.top - margin;
+    const openUpward = spaceBelow < 200 && spaceAbove > spaceBelow;
+    const available = Math.max(160, Math.min(openUpward ? spaceAbove : spaceBelow, 420));
+    panel.style.position = "fixed";
+    panel.style.left = r.left+"px";
+    panel.style.width = r.width+"px";
+    panel.style.maxHeight = available+"px";
+    if(openUpward){
+      panel.style.bottom = (window.innerHeight-r.top+8)+"px";
+      panel.style.top = "auto";
+    }else{
+      panel.style.top = (r.bottom+8)+"px";
+      panel.style.bottom = "auto";
+    }
+    panel.style.zIndex = "9999";
+    const list = panel.querySelector(".dd-list");
+    if(list) list.style.maxHeight = (available-52)+"px";
+  }
+
+  function openPanel(){
+    if(open) return;
+    // Guarantee at most one dropdown panel ever exists, even one still mid-exit-animation
+    // from a different instance that was just closed via normal selection.
+    document.querySelectorAll(".dd-panel").forEach(el=>el.remove());
+    open = true; query = "";
+    trigger.setAttribute("aria-expanded","true");
+    trigger.classList.add("dd-trigger-open");
+    chevron.classList.add("open");
+    panel = document.createElement("div");
+    panel.className = "dd-panel";
+    panel.setAttribute("role","listbox");
+    panel.innerHTML =
+      '<div class="dd-search-row"><div class="dd-search-box">'+ICONS.search(13)+
+      '<input type="text" class="dd-search-input" placeholder="Search material or grade…" aria-label="Search options" autocomplete="off"></div></div>'+
+      '<div class="dd-list"></div>';
+    document.body.appendChild(panel);
+    positionPanel();
+    renderList();
+    const input = panel.querySelector(".dd-search-input");
+    input.addEventListener("input", e=>{ if(!panel) return; query = e.target.value; renderList(); });
+    setTimeout(()=>input.focus(), 0);
+    document.addEventListener("mousedown", onOutsideClick);
+    document.addEventListener("keydown", onKeyDown);
+    window.addEventListener("scroll", onScrollOrResize, true);
+    window.addEventListener("resize", onScrollOrResize);
+  }
+
+  function closePanel(){
+    if(!open) return;
+    open = false;
+    trigger.setAttribute("aria-expanded","false");
+    trigger.classList.remove("dd-trigger-open");
+    chevron.classList.remove("open");
+    if(panel){
+      const p = panel;
+      p.classList.add("dd-panel-exit");
+      setTimeout(()=>{ if(p && p.parentNode) p.remove(); }, 170);
+      panel = null;
+    }
+    document.removeEventListener("mousedown", onOutsideClick);
+    document.removeEventListener("keydown", onKeyDown);
+    window.removeEventListener("scroll", onScrollOrResize, true);
+    window.removeEventListener("resize", onScrollOrResize);
+  }
+
+  trigger.addEventListener("click", ()=>{ open?closePanel():openPanel(); });
+
+  return {
+    getValue: ()=>value,
+    setValue: (v)=>{ value=v; updateTrigger(); }
+  };
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   MAGNETIC BUTTON + PARTICLE BURST / RIPPLE
+   ═══════════════════════════════════════════════════════════════ */
+function enhanceMagneticButton(btn, wrap){
+  btn.addEventListener("mousemove", e=>{
+    if(btn.disabled) return;
+    const r = btn.getBoundingClientRect();
+    const x = (e.clientX - r.left - r.width/2) * .26;
+    const y = (e.clientY - r.top - r.height/2) * .26;
+    btn.style.transition = "transform .08s linear";
+    btn.style.transform = "translate("+x+"px,"+y+"px) scale(1.04)";
+  });
+  btn.addEventListener("mouseleave", ()=>{
+    btn.style.transition = "transform .5s cubic-bezier(.25,1,.5,1)";
+    btn.style.transform = "translate(0,0) scale(1)";
+  });
+  btn.addEventListener("click", e=>{
+    if(btn.disabled) return;
+    const r = wrap.getBoundingClientRect();
+    const cx = e.clientX - r.left, cy = e.clientY - r.top;
+    const rp = document.createElement("span");
+    rp.className = "ripple-el";
+    Object.assign(rp.style,{width:"50px",height:"50px",left:(cx-25)+"px",top:(cy-25)+"px"});
+    wrap.appendChild(rp);
+    setTimeout(()=>rp.remove(),750);
+    const cols = ["#818cf8","#a78bfa","#38bdf8","#34d399","#fb7185","#fbbf24","#60a5fa"];
+    for(let i=0;i<14;i++){
+      const ang = (i/14)*Math.PI*2, dist = 38+Math.random()*38;
+      const p = document.createElement("span");
+      p.className = "particle";
+      Object.assign(p.style,{left:(cx-4)+"px",top:(cy-4)+"px",background:cols[i%cols.length]});
+      p.style.setProperty("--dx",(Math.cos(ang)*dist)+"px");
+      p.style.setProperty("--dy",(Math.sin(ang)*dist)+"px");
+      wrap.appendChild(p);
+      setTimeout(()=>p.remove(),850);
+    }
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   PAGE-INTRO REPLAY (on tab switch)
+   ═══════════════════════════════════════════════════════════════ */
+function replayIntro(container){
+  const els = container.querySelectorAll(".anim-in");
+  els.forEach(el=>{ el.style.animation = "none"; });
+  void container.offsetWidth;
+  els.forEach(el=>{ el.style.animation = ""; });
+}
+// Once an entrance animation finishes, drop it from computed style so the element
+// stops permanently establishing a new stacking context (a completed CSS animation
+// on transform/opacity still counts as "active" for stacking purposes otherwise).
+document.addEventListener("animationend", e=>{
+  if(e.target.classList && (e.target.classList.contains("anim-in")||e.target.classList.contains("hdr-in")||e.target.classList.contains("nav-in"))){
+    e.target.style.animation = "none";
+  }
+});
+
+/* ═══════════════════════════════════════════════════════════════
+   PART CALCULATOR PAGE
+   ═══════════════════════════════════════════════════════════════ */
+const calcState = { shapeId:"", matId:"", dims:{}, qty:1, result:null };
+let shapeDD, matDD;
+
+function initPartCalcPage(){
+  document.getElementById("shape-count-label").textContent = SHAPES.length+" shapes";
+  document.getElementById("mat-count-label").textContent = MAT.length+" grades";
+
+  const shapeOptions = SHAPES.map(s=>({value:s.id, label:s.name, cat:s.cat}));
+  const matOptions = MAT.map(m=>({value:m.id, label:m.g, cat:m.c}));
+
+  shapeDD = createDropdown({
+    mount: document.getElementById("shape-dropdown-mount"),
+    options: shapeOptions, grouped:true, placeholder:"Select part shape…", ariaLabel:"Select part shape",
+    iconFn: shapeIcon,
+    onChange: v=>{ calcState.shapeId=v; calcState.dims={}; calcState.result=null; onShapeOrMatChange(); }
+  });
+  matDD = createDropdown({
+    mount: document.getElementById("mat-dropdown-mount"),
+    options: matOptions, grouped:true, placeholder:"Select IS-standard material…", ariaLabel:"Select material",
+    onChange: v=>{ calcState.matId=v; onShapeOrMatChange(); }
+  });
+
+  document.getElementById("calc-btn").addEventListener("click", calculate);
+  document.getElementById("reset-btn").addEventListener("click", resetCalc);
+  enhanceMagneticButton(document.getElementById("calc-btn"), document.getElementById("calc-btn-wrap"));
+
+  renderDims(); renderDiagram(); renderResult(); updateCalcBtnState();
+}
+
+function onShapeOrMatChange(){
+  renderShapeDesc();
+  renderMatTags();
+  renderDims();
+  renderDiagram();
+  renderResult();
+  updateCalcBtnState();
+  clearError();
+}
+
+function renderShapeDesc(){
+  const shape = getShape(calcState.shapeId);
+  document.getElementById("shape-desc").innerHTML = shape
+    ? ICONS.info(11)+' <span>'+escHtml(shape.desc)+'</span>' : "";
+}
+function renderMatTags(){
+  const mat = getMat(calcState.matId);
+  document.getElementById("mat-tags").innerHTML = mat
+    ? '<span class="tag tag-indigo">'+escHtml(mat.s)+'</span><span class="tag tag-slate">ρ = '+mat.d.toLocaleString()+' kg/m³</span>' : "";
+}
+function renderDims(){
+  const shape = getShape(calcState.shapeId);
+  const container = document.getElementById("dims-container");
+  const progressEl = document.getElementById("dim-progress");
+  if(!shape){
+    container.innerHTML = '<div class="dims-empty">'+ICONS.layers(28)+'<p>Select a shape above to enter dimensions</p></div>';
+    progressEl.innerHTML = "";
+    renderQty();
+    return;
+  }
+  container.innerHTML = '<div class="dims-grid">'+shape.dims.map(d=>
+    '<div class="dim-field"><label>'+escHtml(d.l)+' <span class="unit">('+d.u+')</span></label>'+
+    '<input type="number" min="0" step="any" class="dim-input" data-dim="'+d.k+'" placeholder="0" value="'+escHtml(calcState.dims[d.k]||"")+'"></div>'
+  ).join("")+'</div>';
+  container.querySelectorAll(".dim-input").forEach(inp=>{
+    inp.addEventListener("input", e=>{
+      calcState.dims[e.target.getAttribute("data-dim")] = e.target.value;
+      renderProgress(); updateCalcBtnState(); clearError();
+    });
+  });
+  renderProgress();
+  renderQty();
+}
+function renderProgress(){
+  const shape = getShape(calcState.shapeId);
+  const progressEl = document.getElementById("dim-progress");
+  if(!shape){ progressEl.innerHTML=""; return; }
+  const filled = shape.dims.filter(d=>calcState.dims[d.k]&&parseFloat(calcState.dims[d.k])>0).length;
+  progressEl.innerHTML = '<div class="dot-row">'+shape.dims.map(d=>
+    '<span class="dot'+(calcState.dims[d.k]&&parseFloat(calcState.dims[d.k])>0?' dot-on':'')+'"></span>').join("")+
+    '</div><span class="muted-xs">'+filled+"/"+shape.dims.length+"</span>";
+}
+function renderQty(){
+  const shape = getShape(calcState.shapeId);
+  const container = document.getElementById("qty-container");
+  if(!shape){ container.hidden = true; return; }
+  container.hidden = false;
+  container.innerHTML = '<label class="qty-label">Quantity</label><div class="qty-row">'+
+    '<input type="number" min="1" step="1" id="qty-input" value="'+calcState.qty+'" class="qty-input">'+
+    '<span class="qty-note">pieces / items</span></div>';
+  document.getElementById("qty-input").addEventListener("input", e=>{
+    calcState.qty = Math.max(1, parseInt(e.target.value)||1);
+    renderResult();
+  });
+}
+function renderDiagram(){
+  document.getElementById("diagram-mount").innerHTML = calcState.shapeId
+    ? shapeSVG(calcState.shapeId)
+    : '<div class="diagram-placeholder"><div class="big-glyph">⬡</div><p>Awaiting shape</p></div>';
+}
+let resultKeyCounter = 0;
+function renderResult(){
+  const mount = document.getElementById("result-mount");
+  if(calcState.result===null){
+    mount.innerHTML = '<div class="result-empty"><div class="result-empty-icon">'+ICONS.barChart(20)+'</div>'+
+      '<p>Result appears here<br>after calculation</p></div>';
+    return;
+  }
+  const shape = getShape(calcState.shapeId), mat = getMat(calcState.matId);
+  const kg = calcState.result, qty = calcState.qty, totalKg = kg*qty;
+  const big = kg>=1000?(kg/1000).toFixed(3): kg>=1?kg.toFixed(3):(kg*1000).toFixed(2);
+  const unitLabel = kg>=1000?"Tonne":kg>=1?"kilogram":"gram";
+  resultKeyCounter++;
+  mount.innerHTML =
+    '<div class="result-card" data-k="'+resultKeyCounter+'"><div class="result-card-inner">'+
+    '<p class="result-eyebrow">Calculated Weight</p>'+
+    '<div class="result-big-wrap"><div class="result-big">'+big+'</div>'+
+    '<div class="result-unit">'+unitLabel+' · per piece</div></div>'+
+    (qty>1?'<div class="result-qty-row"><span>×'+qty+' pcs</span><span>'+fmtW(totalKg)+'</span></div>':'')+
+    '<div class="result-meta">'+
+    '<div class="meta-row"><span>Shape</span><span>'+escHtml(shape.name)+'</span></div>'+
+    '<div class="meta-row"><span>Material</span><span>'+escHtml(mat.g.split("/")[0].trim())+'</span></div>'+
+    '<div class="meta-row"><span>Density</span><span>'+mat.d.toLocaleString()+' kg/m³</span></div>'+
+    '</div></div></div>';
+}
+function clearError(){ document.getElementById("err-box").hidden = true; }
+function showError(msg){
+  const box = document.getElementById("err-box");
+  box.hidden = false;
+  box.innerHTML = ICONS.alertCircle(15)+'<span>'+escHtml(msg)+'</span>';
+}
+function updateCalcBtnState(){
+  document.getElementById("calc-btn").disabled = !(calcState.shapeId && calcState.matId);
+}
+function calculate(){
+  if(!calcState.shapeId){ showError("Please select a shape."); return; }
+  if(!calcState.matId){ showError("Please select a material."); return; }
+  const shape = getShape(calcState.shapeId);
+  const allFilled = shape.dims.every(d=>calcState.dims[d.k]&&parseFloat(calcState.dims[d.k])>0);
+  if(!allFilled){ showError("Fill all dimension fields with positive values."); return; }
+  clearError();
+  const kg = computeWeight(calcState.shapeId, calcState.dims, calcState.matId);
+  if(kg===null){ showError("Cannot calculate — verify dimensions are valid."); return; }
+  calcState.result = kg;
+  renderResult();
+}
+function resetCalc(){
+  calcState.shapeId=""; calcState.matId=""; calcState.dims={}; calcState.qty=1; calcState.result=null;
+  shapeDD.setValue(""); matDD.setValue("");
+  onShapeOrMatChange();
+  renderDiagram();
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   BOM PAGE
+   ═══════════════════════════════════════════════════════════════ */
+let bomRows = [];
+let bomIdCounter = 1;
+function newBomRow(){ return {id:bomIdCounter++, partName:"", shapeId:"", matId:"", dims:{}, qty:1}; }
+
+function initBomPage(){
+  bomRows = [newBomRow()];
+  renderBomTable();
+  document.getElementById("add-row-btn").addEventListener("click", addBomRow);
+  document.getElementById("add-row-btn-2").addEventListener("click", addBomRow);
+  document.getElementById("print-btn").addEventListener("click", ()=>window.print());
+  mountIcon("icon-mount-plus2", ICONS.plus, 14);
+
+  const tbody = document.getElementById("bom-tbody");
+  tbody.addEventListener("input", handleBomInput);
+  tbody.addEventListener("change", handleBomChange);
+  tbody.addEventListener("click", handleBomClick);
+}
+function addBomRow(){
+  if(bomRows.length>=100) return;
+  bomRows.push(newBomRow());
+  renderBomTable();
+}
+function deleteBomRow(id){
+  if(bomRows.length<=1) return;
+  bomRows = bomRows.filter(r=>r.id!==id);
+  renderBomTable();
+}
+function handleBomInput(e){
+  const t = e.target;
+  const tr = t.closest("tr"); if(!tr) return;
+  const id = parseInt(tr.getAttribute("data-id"));
+  const row = bomRows.find(r=>r.id===id); if(!row) return;
+  if(t.classList.contains("bom-partname")) row.partName = t.value;
+  else if(t.classList.contains("bom-qty")) row.qty = Math.max(1, parseInt(t.value)||1);
+  else if(t.classList.contains("bom-dim")) row.dims[t.getAttribute("data-dim")] = t.value;
+  else return;
+  updateRowWeights(tr, row);
+  updateSummary();
+}
+function handleBomChange(e){
+  const t = e.target;
+  const tr = t.closest("tr"); if(!tr) return;
+  const id = parseInt(tr.getAttribute("data-id"));
+  const row = bomRows.find(r=>r.id===id); if(!row) return;
+  if(t.classList.contains("bom-shape")){
+    row.shapeId = t.value; row.dims = {};
+    renderBomTable();
+  }else if(t.classList.contains("bom-mat")){
+    row.matId = t.value;
+    updateRowWeights(tr, row);
+    updateSummary();
+  }
+}
+function handleBomClick(e){
+  const delBtn = e.target.closest(".bom-delete");
+  if(delBtn){
+    const tr = delBtn.closest("tr");
+    deleteBomRow(parseInt(tr.getAttribute("data-id")));
+  }
+}
+function updateRowWeights(tr, row){
+  const wt = computeWeight(row.shapeId, row.dims, row.matId);
+  const totalWt = wt!==null? wt*(row.qty||1): null;
+  const singleEl = tr.querySelector(".bom-single-wt");
+  const totalEl = tr.querySelector(".bom-total-wt");
+  singleEl.textContent = fmtW(wt);
+  singleEl.classList.toggle("wt-calculated", wt!==null);
+  totalEl.textContent = fmtW(totalWt);
+  totalEl.classList.toggle("wt-calculated", totalWt!==null);
+}
+function bomRowHtml(row, idx){
+  const shape = getShape(row.shapeId);
+  const wt = computeWeight(row.shapeId, row.dims, row.matId);
+  const totalWt = wt!==null? wt*(row.qty||1): null;
+  const shapeOptionsHtml = SHAPE_CATS.map(cat=>
+    '<optgroup label="'+escHtml(cat)+'">'+SHAPES.filter(s=>s.cat===cat).map(s=>
+      '<option value="'+s.id+'"'+(s.id===row.shapeId?' selected':'')+'>'+escHtml(s.name)+'</option>'
+    ).join("")+'</optgroup>'
+  ).join("");
+  const matOptionsHtml = MAT_CATS.map(cat=>
+    '<optgroup label="'+escHtml(cat)+'">'+MAT.filter(m=>m.c===cat).map(m=>
+      '<option value="'+m.id+'"'+(m.id===row.matId?' selected':'')+'>'+escHtml(m.g)+'</option>'
+    ).join("")+'</optgroup>'
+  ).join("");
+  const dimsHtml = shape ? '<div class="bom-dims-row">'+shape.dims.map(d=>
+    '<div class="bom-dim-field"><span class="bom-dim-k">'+d.k+' <span class="bom-dim-u">('+d.u+')</span></span>'+
+    '<input type="number" min="0" step="any" class="bom-input bom-dim" data-dim="'+d.k+'" placeholder="'+d.u+'" title="'+escHtml(d.l)+'" value="'+escHtml(row.dims[d.k]||"")+'"></div>'
+  ).join("")+'</div>' : '<span class="bom-dims-empty">Select shape first</span>';
+
+  return '<tr data-id="'+row.id+'" class="bom-tr">'+
+    '<td class="bom-sr">'+(idx+1)+'</td>'+
+    '<td><input type="text" class="bom-input bom-partname" placeholder="Part name…" value="'+escHtml(row.partName)+'"></td>'+
+    '<td><select class="bom-input bom-shape"><option value="">– Shape –</option>'+shapeOptionsHtml+'</select></td>'+
+    '<td><select class="bom-input bom-mat"><option value="">– Material –</option>'+matOptionsHtml+'</select></td>'+
+    '<td>'+dimsHtml+'</td>'+
+    '<td><input type="number" min="1" step="1" class="bom-input bom-qty" value="'+(row.qty||1)+'"></td>'+
+    '<td class="bom-single-wt'+(wt!==null?' wt-calculated':'')+'">'+fmtW(wt)+'</td>'+
+    '<td class="bom-total-wt'+(totalWt!==null?' wt-calculated':'')+'">'+fmtW(totalWt)+'</td>'+
+    '<td class="no-print"><button type="button" class="bom-delete" aria-label="Delete row">'+ICONS.trash(11)+'</button></td>'+
+    '</tr>';
+}
+function renderBomTable(){
+  document.getElementById("bom-tbody").innerHTML = bomRows.map((row,idx)=>bomRowHtml(row,idx)).join("");
+  updateSummary();
+}
+function updateSummary(){
+  let calcCount=0, bomTotal=0;
+  bomRows.forEach(row=>{
+    const wt = computeWeight(row.shapeId, row.dims, row.matId);
+    if(wt!==null){ calcCount++; bomTotal += wt*(row.qty||1); }
+  });
+  document.getElementById("stat-total").textContent = bomRows.length;
+  document.getElementById("stat-calc").textContent = calcCount;
+  document.getElementById("stat-pending").textContent = bomRows.length - calcCount;
+  document.getElementById("stat-weight").textContent = fmtW(bomTotal);
+
+  const addBtn = document.getElementById("add-row-btn");
+  addBtn.disabled = bomRows.length>=100;
+  addBtn.innerHTML = ICONS.plus(14)+' <span>Add Row ('+bomRows.length+'/100)</span>';
+
+  document.getElementById("add-row-footer").style.display = bomRows.length<100? "":"none";
+  document.getElementById("footer-summary-text").textContent = calcCount+" of "+bomRows.length+" rows calculated";
+  document.getElementById("footer-total").textContent = fmtW(bomTotal);
+
+  document.getElementById("print-total-rows").textContent = bomRows.length;
+  document.getElementById("print-calc-count").textContent = calcCount;
+  document.getElementById("print-bom-weight").textContent = fmtW(bomTotal);
+  document.getElementById("print-date").textContent = new Date().toLocaleDateString("en-IN",{day:"2-digit",month:"short",year:"numeric"});
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   TAB SWITCHING
+   ═══════════════════════════════════════════════════════════════ */
+function switchTab(tab){
+  const isCalc = tab==="calc";
+  const calcPage = document.getElementById("page-calc");
+  const bomPage = document.getElementById("page-bom");
+  calcPage.hidden = !isCalc;
+  bomPage.hidden = isCalc;
+  document.getElementById("tab-calc").classList.toggle("active", isCalc);
+  document.getElementById("tab-bom").classList.toggle("active", !isCalc);
+  document.getElementById("tab-calc").setAttribute("aria-current", isCalc?"page":"false");
+  document.getElementById("tab-bom").setAttribute("aria-current", !isCalc?"page":"false");
+  replayIntro(isCalc?calcPage:bomPage);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   CONTACT INFO — loaded from the serverless API (/api/contact), which
+   reads real values from environment variables server-side. Personal
+   contact details are never present in this client-side source file.
+   ═══════════════════════════════════════════════════════════════ */
+async function loadContactInfo(){
+  const headerEl = document.getElementById("brand-contact");
+  const footerEl = document.getElementById("footer-contact");
+  try{
+    const res = await fetch("/api/contact");
+    if(!res.ok) throw new Error("api not available");
+    const c = await res.json();
+    if(!c || (!c.phone && !c.email && !c.location)) throw new Error("not configured");
+    const line2 = [c.phone?('<a href="tel:'+escHtml(c.phone)+'">'+escHtml(c.phone)+'</a>'):"",
+                    c.email?('<a href="mailto:'+escHtml(c.email)+'">'+escHtml(c.email)+'</a>'):""]
+                    .filter(Boolean).join(' <span class="contact-loc">·</span> ');
+    headerEl.innerHTML =
+      (c.brand?'<p style="color:#a5b4fc;font-weight:700">'+escHtml(c.brand)+'</p>':"")+
+      (line2?'<p>'+line2+'</p>':"")+
+      (c.location?'<p class="contact-loc">'+escHtml(c.location)+'</p>':"");
+    footerEl.innerHTML =
+      (line2?'<p>'+line2+'</p>':"")+
+      '<p>'+(c.location?escHtml(c.location)+' · ':'')+'Weights derived from IS standard material densities</p>';
+  }catch(e){
+    // Local file:// use or API not yet configured — keep the static location text
+    // already in the markup rather than showing a broken/empty state.
+  }
+}
+
+document.addEventListener("DOMContentLoaded", ()=>{
+  mountIcon("icon-mount-tab-calc", ICONS.calculator, 16);
+  mountIcon("icon-mount-tab-bom", ICONS.spreadsheet, 16);
+  mountIcon("icon-mount-calc-head", ICONS.calculator, 20);
+  mountIcon("icon-mount-bom-head", ICONS.spreadsheet, 20);
+  mountIcon("icon-mount-layers", ICONS.layers, 15);
+  mountIcon("icon-mount-package", ICONS.package, 15);
+  mountIcon("icon-mount-zap", ICONS.zap, 15);
+  mountIcon("icon-mount-refresh", ICONS.refresh, 14);
+  mountIcon("icon-mount-barchart", ICONS.barChart, 20);
+  mountIcon("icon-mount-printer", ICONS.printer, 14);
+
+  document.getElementById("tab-calc").addEventListener("click", ()=>switchTab("calc"));
+  document.getElementById("tab-bom").addEventListener("click", ()=>switchTab("bom"));
+
+  initPartCalcPage();
+  initBomPage();
+  loadContactInfo();
+});
+</script>
+</body>
+</html>

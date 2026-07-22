@@ -1,0 +1,11 @@
+{
+  "name": "ps3d-hub-weight-calculator",
+  "version": "1.0.0",
+  "description": "Part weight and BOM weight calculator for IS-standard materials and structural shapes, by PS3D Hub.",
+  "private": true,
+  "license": "MIT",
+  "author": "Sagar Patel <84014sagar@gmail.com>",
+  "scripts": {
+    "dev": "vercel dev"
+  }
+}
