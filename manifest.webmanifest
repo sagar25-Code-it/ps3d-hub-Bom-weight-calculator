@@ -1,0 +1,17 @@
+{
+  "name": "PS3D Hub Engineering Mass & BOM Workbench",
+  "short_name": "PS3D Hub",
+  "description": "Traceable theoretical mass calculations and a local-first engineering BOM workspace.",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f3f6fb",
+  "theme_color": "#0b1220",
+  "icons": [
+    {
+      "src": "./favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
