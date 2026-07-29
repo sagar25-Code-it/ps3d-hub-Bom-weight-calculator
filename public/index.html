@@ -1,0 +1,567 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b1220">
+  <meta name="application-name" content="PS3D Hub Engineering Workbench">
+  <meta name="description" content="A traceable theoretical mass and bill of materials calculator for engineering shapes, materials, planning allowances, and reports.">
+  <title>PS3D Hub | Engineering Mass &amp; BOM Workbench</title>
+  <link rel="icon" href="./favicon.svg" type="image/svg+xml">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="stylesheet" href="./styles.css">
+  <script type="module" src="./js/app.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#main-content">Skip to calculator</a>
+
+  <header class="app-header">
+    <div class="shell header-inner">
+      <a class="brand" href="#calculator" aria-label="PS3D Hub calculator home">
+        <img src="./logo.png" width="52" height="36" alt="">
+        <span class="brand-copy">
+          <strong>PS3D <em>Hub</em></strong>
+          <span>Engineering mass &amp; BOM workbench</span>
+        </span>
+      </a>
+
+      <div class="header-actions">
+        <span class="privacy-chip" title="Your BOM is saved only in this browser">
+          <span class="status-dot" aria-hidden="true"></span>
+          Local-first
+        </span>
+        <button class="icon-button" id="theme-toggle" type="button" aria-label="Switch to dark theme" title="Switch theme">
+          <span aria-hidden="true">◐</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <nav class="view-nav" aria-label="Workbench views">
+    <div class="shell view-nav-inner" role="tablist" aria-label="Calculator sections">
+      <button class="view-tab is-active" id="tab-calculator" type="button" role="tab" aria-selected="true"
+        aria-controls="view-calculator" data-view="calculator">
+        <span class="tab-icon" aria-hidden="true">⌁</span>
+        <span>Part calculator</span>
+      </button>
+      <button class="view-tab" id="tab-bom" type="button" role="tab" aria-selected="false"
+        aria-controls="view-bom" data-view="bom" tabindex="-1">
+        <span class="tab-icon" aria-hidden="true">▦</span>
+        <span>BOM workspace</span>
+        <span class="count-badge" id="nav-bom-count">0</span>
+      </button>
+      <button class="view-tab" id="tab-method" type="button" role="tab" aria-selected="false"
+        aria-controls="view-method" data-view="method" tabindex="-1">
+        <span class="tab-icon" aria-hidden="true">ⓘ</span>
+        <span>Method &amp; sources</span>
+      </button>
+    </div>
+  </nav>
+
+  <main id="main-content" class="shell app-main">
+    <section id="view-calculator" class="view-panel" role="tabpanel" aria-labelledby="tab-calculator">
+      <div class="page-heading">
+        <div>
+          <p class="eyebrow">Engineering estimator</p>
+          <h1>Theoretical mass, with every assumption visible.</h1>
+          <p class="page-intro">Choose a shape and material, enter finished dimensions, then review the formula,
+            volume, density reference, tolerance band, and procurement quantity before adding the part to your BOM.</p>
+        </div>
+        <fieldset class="unit-switch" aria-label="Input unit system">
+          <legend class="visually-hidden">Input unit system</legend>
+          <label>
+            <input type="radio" name="unit-system" value="metric" checked>
+            <span>Metric</span>
+          </label>
+          <label>
+            <input type="radio" name="unit-system" value="imperial">
+            <span>Imperial</span>
+          </label>
+        </fieldset>
+      </div>
+
+      <div class="trust-strip" role="note">
+        <span class="trust-item"><strong id="shape-count">22</strong> geometry models with input checks</span>
+        <span class="trust-item"><strong id="material-count">151</strong> reference materials</span>
+        <span class="trust-item"><strong>SI</strong> calculation core</span>
+        <span class="trust-item"><strong>Local</strong> BOM autosave</span>
+      </div>
+
+      <div class="calculator-layout">
+        <form class="card input-card" id="calculator-form" novalidate>
+          <div class="card-heading">
+            <div>
+              <p class="eyebrow">Input setup</p>
+              <h2>Build the part</h2>
+            </div>
+            <button class="text-button" id="reset-calculator" type="reset">Reset</button>
+          </div>
+
+          <section class="form-step" aria-labelledby="shape-step-title">
+            <div class="step-heading">
+              <span class="step-number" aria-hidden="true">1</span>
+              <div>
+                <h3 id="shape-step-title">Shape</h3>
+                <p>Select the geometry that best matches the finished part.</p>
+              </div>
+            </div>
+            <label class="field-label" for="shape-select">Shape type</label>
+            <select class="control" id="shape-select" name="shape" required>
+              <option value="">Select a shape…</option>
+            </select>
+            <div class="selection-note" id="shape-note" hidden></div>
+          </section>
+
+          <section class="form-step" aria-labelledby="material-step-title">
+            <div class="step-heading">
+              <span class="step-number" aria-hidden="true">2</span>
+              <div>
+                <h3 id="material-step-title">Material &amp; density</h3>
+                <p>Density values are references—not substitutes for a supplier certificate.</p>
+              </div>
+            </div>
+
+            <label class="field-label" for="material-search">Find material</label>
+            <div class="search-control">
+              <span aria-hidden="true">⌕</span>
+              <input id="material-search" type="search" inputmode="search"
+                placeholder="Search grade, alloy, category or standard…" autocomplete="off"
+                aria-controls="material-select">
+            </div>
+
+            <label class="field-label" for="material-select">Material grade</label>
+            <select class="control" id="material-select" name="material" required>
+              <option value="">Select a material…</option>
+            </select>
+
+            <div class="material-evidence" id="material-evidence" hidden>
+              <div>
+                <span>Reference density</span>
+                <strong id="material-density-display">—</strong>
+              </div>
+              <div>
+                <span>Reference status</span>
+                <strong id="material-status-display">—</strong>
+              </div>
+              <p id="material-reference-display"></p>
+            </div>
+
+            <label class="check-row" for="custom-density-enabled">
+              <input id="custom-density-enabled" type="checkbox">
+              <span>
+                <strong>Use a measured or supplier density</strong>
+                <small>Best choice when an MTC, datasheet, or laboratory value is available.</small>
+              </span>
+            </label>
+            <div id="custom-density-wrap" hidden>
+              <label class="field-label" for="custom-density">Custom density <span>(kg/m³)</span></label>
+              <input class="control numeric" id="custom-density" type="number" min="0.001" max="100000"
+                step="any" inputmode="decimal" placeholder="e.g. 7850">
+            </div>
+          </section>
+
+          <section class="form-step" aria-labelledby="dimension-step-title">
+            <div class="step-heading">
+              <span class="step-number" aria-hidden="true">3</span>
+              <div>
+                <h3 id="dimension-step-title">Dimensions &amp; quantity</h3>
+                <p id="dimension-unit-hint">Cross-section dimensions use mm; length uses m.</p>
+              </div>
+            </div>
+
+            <div class="dimension-empty" id="dimension-empty">
+              <span aria-hidden="true">⌗</span>
+              <p>Select a shape to load its dimension fields.</p>
+            </div>
+            <div class="dimension-grid" id="dimension-fields"></div>
+
+            <div class="field-grid two-col">
+              <div>
+                <label class="field-label" for="quantity">Quantity <span>(whole pieces)</span></label>
+                <input class="control numeric" id="quantity" name="quantity" type="number" min="1" max="1000000"
+                  step="1" inputmode="numeric" value="1" required>
+              </div>
+              <div>
+                <label class="field-label" for="part-name">Part name <span>(optional)</span></label>
+                <input class="control" id="part-name" name="partName" type="text" maxlength="80"
+                  placeholder="e.g. Base frame rail">
+              </div>
+            </div>
+
+            <details class="advanced-panel">
+              <summary>
+                <span>Planning allowances</span>
+                <small>Waste, tolerance &amp; cost</small>
+              </summary>
+              <div class="field-grid three-col advanced-grid">
+                <div>
+                  <label class="field-label" for="tolerance">Mass tolerance <span>(±%)</span></label>
+                  <input class="control numeric" id="tolerance" type="number" min="0" max="50" step="0.1"
+                    inputmode="decimal" value="0">
+                </div>
+                <div>
+                  <label class="field-label" for="waste">Waste / scrap <span>(%)</span></label>
+                  <input class="control numeric" id="waste" type="number" min="0" max="500" step="0.1"
+                    inputmode="decimal" value="0">
+                </div>
+                <div>
+                  <label class="field-label" for="cost-per-kg">Rate <span>(₹/kg)</span></label>
+                  <input class="control numeric" id="cost-per-kg" type="number" min="0" max="10000000" step="0.01"
+                    inputmode="decimal" value="0">
+                </div>
+              </div>
+              <p class="helper-text">The tolerance is a planning band applied to calculated mass. It does not model
+                a specific mill or dimensional tolerance standard.</p>
+            </details>
+          </section>
+
+          <div class="error-summary" id="calculator-errors" role="alert" hidden>
+            <strong>Check these inputs:</strong>
+            <ul></ul>
+          </div>
+
+          <div class="form-actions">
+            <button class="button primary-button" id="calculate-button" type="submit">
+              Calculate theoretical mass
+            </button>
+            <span class="keyboard-hint">Press Enter to calculate</span>
+          </div>
+        </form>
+
+        <aside class="result-column" aria-label="Calculation output">
+          <article class="card result-card" id="result-card" aria-live="polite">
+            <div class="result-empty" id="result-empty">
+              <div class="diagram-stage" id="shape-diagram" aria-hidden="true">
+                <span class="diagram-placeholder">◇</span>
+              </div>
+              <p class="eyebrow">Result panel</p>
+              <h2>Ready when your inputs are.</h2>
+              <p>The result will include nominal mass, planning range, volume, formula, density source, and assumptions.</p>
+            </div>
+
+            <div class="result-content" id="result-content" hidden>
+              <div class="result-heading">
+                <div>
+                  <p class="eyebrow">Theoretical mass</p>
+                  <h2 id="result-part-name">Calculated part</h2>
+                </div>
+                <span class="state-badge success" id="result-state">Reference estimate</span>
+              </div>
+
+              <div class="primary-result">
+                <strong id="result-total-mass">—</strong>
+                <span id="result-total-label">total mass</span>
+                <p><span id="result-per-piece">—</span> per piece × <span id="result-quantity">1</span></p>
+              </div>
+
+              <div class="metric-grid">
+                <div class="metric">
+                  <span>Material volume</span>
+                  <strong id="result-volume">—</strong>
+                </div>
+                <div class="metric">
+                  <span>Section area</span>
+                  <strong id="result-area">—</strong>
+                </div>
+                <div class="metric">
+                  <span>Weight force</span>
+                  <strong id="result-force">—</strong>
+                </div>
+                <div class="metric">
+                  <span>Planning range</span>
+                  <strong id="result-range">—</strong>
+                </div>
+                <div class="metric">
+                  <span>Procurement mass</span>
+                  <strong id="result-procurement">—</strong>
+                </div>
+                <div class="metric">
+                  <span>Estimated material cost</span>
+                  <strong id="result-cost">—</strong>
+                </div>
+              </div>
+
+              <div class="evidence-panel">
+                <div class="evidence-row">
+                  <span>Shape model</span>
+                  <strong id="result-shape">—</strong>
+                </div>
+                <div class="evidence-row">
+                  <span>Material</span>
+                  <strong id="result-material">—</strong>
+                </div>
+                <div class="evidence-row">
+                  <span>Density used</span>
+                  <strong id="result-density">—</strong>
+                </div>
+                <div class="evidence-row">
+                  <span>Formula</span>
+                  <code id="result-formula">—</code>
+                </div>
+                <div class="evidence-row">
+                  <span>Substitution</span>
+                  <code id="result-substitution">—</code>
+                </div>
+              </div>
+
+              <div class="assumption-callout">
+                <strong>Engineering note</strong>
+                <p id="result-assumptions">—</p>
+              </div>
+
+              <div class="result-actions">
+                <button class="button primary-button" id="add-to-bom" type="button">Add to BOM</button>
+                <button class="button secondary-button" id="copy-result" type="button">Copy summary</button>
+                <button class="button quiet-button" id="cancel-bom-edit" type="button" hidden>Cancel BOM edit</button>
+              </div>
+            </div>
+
+            <div class="result-dirty" id="result-dirty" hidden>
+              <span aria-hidden="true">↻</span>
+              <div>
+                <strong>Inputs changed</strong>
+                <p>Calculate again before using or adding this result.</p>
+              </div>
+            </div>
+          </article>
+
+          <article class="card confidence-card">
+            <div class="confidence-heading">
+              <span class="confidence-icon" aria-hidden="true">✓</span>
+              <div>
+                <h2>What this result means</h2>
+                <p>A geometry × density estimate—not a certified actual mass.</p>
+              </div>
+            </div>
+            <ul>
+              <li>Rolled sections use idealized manual geometry unless a catalog mass is selected.</li>
+              <li>Fillets, radii, coatings, holes, moisture, and mill variation need project-specific allowance.</li>
+              <li>For purchasing or certification, verify against drawings, MTCs, supplier tables, or measured mass.</li>
+            </ul>
+          </article>
+        </aside>
+      </div>
+    </section>
+
+    <section id="view-bom" class="view-panel" role="tabpanel" aria-labelledby="tab-bom" hidden>
+      <div class="page-heading bom-heading">
+        <div>
+          <p class="eyebrow">Project workspace</p>
+          <h1>Bill of materials</h1>
+          <p class="page-intro">Build a recoverable, revision-ready mass summary. Every line keeps the exact dimensions,
+            density, unit system, formula, and planning allowances used at calculation time.</p>
+        </div>
+        <div class="save-status" id="save-status" role="status">
+          <span class="status-dot" aria-hidden="true"></span>
+          Saved locally
+        </div>
+      </div>
+
+      <section class="card project-card" aria-labelledby="project-details-title">
+        <div class="card-heading compact">
+          <div>
+            <p class="eyebrow">Report identity</p>
+            <h2 id="project-details-title">Project details</h2>
+          </div>
+          <button class="text-button" id="new-bom" type="button">New BOM</button>
+        </div>
+        <div class="project-grid">
+          <div>
+            <label class="field-label" for="project-name">Project</label>
+            <input class="control project-input" id="project-name" type="text" maxlength="100" placeholder="Project name">
+          </div>
+          <div>
+            <label class="field-label" for="client-name">Client</label>
+            <input class="control project-input" id="client-name" type="text" maxlength="100" placeholder="Client or company">
+          </div>
+          <div>
+            <label class="field-label" for="drawing-number">Drawing / document no.</label>
+            <input class="control project-input" id="drawing-number" type="text" maxlength="60" placeholder="e.g. PS3D-001">
+          </div>
+          <div>
+            <label class="field-label" for="revision">Revision</label>
+            <input class="control project-input" id="revision" type="text" maxlength="20" placeholder="e.g. R0">
+          </div>
+          <div>
+            <label class="field-label" for="prepared-by">Prepared by</label>
+            <input class="control project-input" id="prepared-by" type="text" maxlength="80" placeholder="Name">
+          </div>
+          <div>
+            <label class="field-label" for="checked-by">Checked by</label>
+            <input class="control project-input" id="checked-by" type="text" maxlength="80" placeholder="Name">
+          </div>
+        </div>
+      </section>
+
+      <div class="bom-toolbar" aria-label="BOM actions">
+        <div class="toolbar-primary">
+          <button class="button primary-button" id="bom-add-current" type="button">Add current calculation</button>
+          <button class="button secondary-button" id="bom-import" type="button">Import JSON</button>
+          <input id="bom-import-file" type="file" accept="application/json,.json" hidden>
+        </div>
+        <div class="toolbar-secondary">
+          <button class="button quiet-button" id="bom-export-csv" type="button">Export CSV</button>
+          <button class="button quiet-button" id="bom-export-json" type="button">Download JSON</button>
+          <button class="button quiet-button" id="bom-print" type="button">Print / PDF</button>
+        </div>
+      </div>
+
+      <div class="bom-summary" aria-label="BOM summary">
+        <div class="summary-card">
+          <span>Line items</span>
+          <strong id="summary-lines">0</strong>
+        </div>
+        <div class="summary-card">
+          <span>Total pieces</span>
+          <strong id="summary-pieces">0</strong>
+        </div>
+        <div class="summary-card accent">
+          <span>Nominal mass</span>
+          <strong id="summary-mass">—</strong>
+        </div>
+        <div class="summary-card">
+          <span>Procurement mass</span>
+          <strong id="summary-procurement">—</strong>
+        </div>
+        <div class="summary-card">
+          <span>Estimated cost</span>
+          <strong id="summary-cost">—</strong>
+        </div>
+      </div>
+
+      <section class="card bom-table-card" aria-labelledby="bom-table-title">
+        <div class="card-heading compact bom-table-heading">
+          <div>
+            <p class="eyebrow">Calculated parts</p>
+            <h2 id="bom-table-title">BOM lines</h2>
+          </div>
+          <span class="table-note">Edit quantity/name directly; use “Load” to update geometry or material.</span>
+        </div>
+
+        <div class="table-scroll">
+          <table class="bom-table">
+            <caption class="visually-hidden">Calculated bill of materials line items</caption>
+            <thead>
+              <tr>
+                <th scope="col">#</th>
+                <th scope="col">Part</th>
+                <th scope="col">Shape &amp; dimensions</th>
+                <th scope="col">Material</th>
+                <th scope="col">Qty</th>
+                <th scope="col">Each</th>
+                <th scope="col">Total</th>
+                <th scope="col">Procurement</th>
+                <th scope="col"><span class="visually-hidden">Actions</span></th>
+              </tr>
+            </thead>
+            <tbody id="bom-body"></tbody>
+          </table>
+        </div>
+
+        <div class="bom-empty" id="bom-empty">
+          <div class="empty-icon" aria-hidden="true">▦</div>
+          <h3>No calculated parts yet</h3>
+          <p>Complete a valid part calculation, then select <strong>Add to BOM</strong>. Your work will autosave in this browser.</p>
+          <button class="button secondary-button" type="button" data-go-calculator>Open part calculator</button>
+        </div>
+      </section>
+
+      <section class="report-note" aria-label="Report disclaimer">
+        <strong>Theoretical estimate notice</strong>
+        <p>Totals are based on entered ideal geometry and reference or custom density. Actual supplied mass may vary because
+          of dimensional tolerances, radii, tapers, coatings, holes, cut-outs, moisture, composition, and manufacturing variation.</p>
+      </section>
+    </section>
+
+    <section id="view-method" class="view-panel method-view" role="tabpanel" aria-labelledby="tab-method" hidden>
+      <div class="page-heading">
+        <div>
+          <p class="eyebrow">Methodology</p>
+          <h1>See how the number is built.</h1>
+          <p class="page-intro">This workbench keeps the simple relationship visible: material volume × density = theoretical
+            mass. It also explains where a reference is strong, where it is only indicative, and what must be verified.</p>
+        </div>
+      </div>
+
+      <div class="method-grid">
+        <article class="card method-card equation-card">
+          <p class="eyebrow">Core equation</p>
+          <div class="big-equation" aria-label="Mass equals volume multiplied by density">
+            <span>m</span><b>=</b><span>V</span><b>×</b><span>ρ</span>
+          </div>
+          <dl>
+            <div><dt>m</dt><dd>Theoretical mass in kilograms</dd></div>
+            <div><dt>V</dt><dd>Net material volume in cubic metres</dd></div>
+            <div><dt>ρ</dt><dd>Density in kilograms per cubic metre</dd></div>
+          </dl>
+        </article>
+
+        <article class="card method-card">
+          <p class="eyebrow">Result status</p>
+          <h2>Reference, not certification</h2>
+          <p>A grade or product standard may identify composition, strength, dimensions, or tolerances without prescribing one
+            universal density. That is why every material is labelled as a reference value, and custom supplier density is supported.</p>
+          <ul class="check-list">
+            <li>Use reference density for early design and quoting.</li>
+            <li>Use supplier or measured density for purchasing-critical work.</li>
+            <li>Use the active manufacturer or standard catalog kg/m for rolled sections when available.</li>
+          </ul>
+        </article>
+
+        <article class="card method-card">
+          <p class="eyebrow">Structural sections</p>
+          <h2>Manual models are idealized</h2>
+          <p>Manual I, H, channel, angle, hollow, and Z models use clean geometric rectangles. Standard rolled products include
+            radii, slopes, tolerances, and tabulated nominal mass. The UI marks that distinction instead of calling an approximation exact.</p>
+        </article>
+
+        <article class="card method-card">
+          <p class="eyebrow">Units</p>
+          <h2>One SI calculation core</h2>
+          <p>Metric and imperial inputs are converted to metres before any geometry formula runs. Mass is stored in kilograms and
+            displayed as t, kg, g, mg, or µg without changing the underlying value.</p>
+        </article>
+      </div>
+
+      <section class="card source-card" aria-labelledby="source-title">
+        <div class="card-heading">
+          <div>
+            <p class="eyebrow">Authoritative starting points</p>
+            <h2 id="source-title">Standards &amp; technical sources</h2>
+          </div>
+          <span class="state-badge neutral">Reviewed 28 Jul 2026</span>
+        </div>
+        <p class="source-intro">These sources support the calculation method, unit language, standard-section approach, and selected
+          reference values. A project-specific drawing, active standard, supplier table, MTC, or measured value takes priority.</p>
+        <div class="source-list" id="source-list"></div>
+      </section>
+
+      <section class="card audit-card" aria-labelledby="audit-title">
+        <div>
+          <p class="eyebrow">Data quality</p>
+          <h2 id="audit-title">Why legacy citations were changed</h2>
+        </div>
+        <p>The original dataset attached some standards to materials even when those standards described unrelated products or test
+          methods. The upgraded tool removes those misleading claims, retains the useful indicative density value, and tells the user
+          to verify it from an appropriate supplier or technical source.</p>
+      </section>
+    </section>
+  </main>
+
+  <footer class="app-footer">
+    <div class="shell footer-inner">
+      <div>
+        <strong>PS3D Hub</strong>
+        <span>Engineering tools for clearer decisions.</span>
+      </div>
+      <p id="footer-contact">Theoretical estimates · Verify critical values against current project documents.</p>
+    </div>
+  </footer>
+
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+  <noscript>
+    <div class="noscript-message">This calculator needs JavaScript to run. Enable JavaScript and reload the page.</div>
+  </noscript>
+</body>
+</html>

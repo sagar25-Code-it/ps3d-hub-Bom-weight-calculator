@@ -284,6 +284,32 @@ test("metric and imperial inputs normalize to the same SI geometry", () => {
   approximately(toDisplayValue(0.3048, "length", "imperial"), 1);
 });
 
+test("catalog and custom density sources remain distinguishable", () => {
+  const catalog = calculatePart({
+    shapeId: "round_bar",
+    materialId: "e250a",
+    dimensions: { D: 20, L: 1 },
+  });
+  assert.equal(catalog.ok, true);
+  assert.equal(catalog.densitySource, "material-reference");
+  assert.equal(
+    catalog.assumptions.some((assumption) => assumption.includes("user-supplied density")),
+    false,
+  );
+
+  const custom = calculatePart({
+    shapeId: "round_bar",
+    densityKgM3: 7850,
+    dimensions: { D: 20, L: 1 },
+  });
+  assert.equal(custom.ok, true);
+  assert.equal(custom.densitySource, "user");
+  assert.equal(
+    custom.assumptions.some((assumption) => assumption.includes("user-supplied density")),
+    true,
+  );
+});
+
 test("structured field and cross-field validation rejects impossible geometry", () => {
   const cases = [
     ["rnd_pipe", { OD: 100, WT: 50, L: 1 }, "WALL_CONSUMES_SECTION"],
