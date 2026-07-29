@@ -835,6 +835,106 @@ select.control {
   font-size: 11px;
 }
 
+.optional-label {
+  display: inline-flex;
+  min-height: 22px;
+  align-items: center;
+  margin-left: 6px;
+  padding: 2px 7px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-soft);
+  color: var(--ink-600);
+  font-size: 9px;
+  font-weight: 850;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+
+.engineering-step {
+  background: color-mix(in srgb, var(--primary-50) 28%, var(--surface-raised));
+}
+
+.engineering-provenance {
+  margin-bottom: 16px;
+  padding: 13px 14px;
+  border: 1px solid color-mix(in srgb, var(--warning-800) 32%, var(--line));
+  border-left-width: 4px;
+  border-radius: 0 10px 10px 0;
+  background: var(--warning-100);
+  color: var(--warning-800);
+  font-size: 11px;
+}
+
+.engineering-provenance strong {
+  display: block;
+  margin-bottom: 2px;
+  font-size: 12px;
+}
+
+.engineering-provenance p {
+  margin: 0;
+}
+
+.engineering-disclosures {
+  display: grid;
+  gap: 10px;
+}
+
+.engineering-disclosure {
+  margin-top: 0;
+  background: var(--surface);
+}
+
+.engineering-disclosure summary {
+  padding-inline: 16px;
+}
+
+.engineering-fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 0 14px 16px;
+  border: 0;
+}
+
+.engineering-section-note {
+  margin: 0 0 14px;
+  padding: 11px 12px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface-soft);
+  color: var(--ink-600);
+  font-size: 11px;
+}
+
+.engineering-input-grid {
+  align-items: start;
+}
+
+.engineering-input-grid > div {
+  min-width: 0;
+}
+
+.field-span-two {
+  grid-column: 1 / -1;
+}
+
+.control-combo {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(92px, 0.34fr);
+  gap: 8px;
+}
+
+.unit-control {
+  min-width: 0;
+}
+
+.engineering-notes {
+  min-height: 96px;
+  resize: vertical;
+}
+
 .error-summary {
   margin: 20px 26px 0;
   padding: 14px 16px;
@@ -1124,6 +1224,98 @@ select.control {
   font-variant-numeric: tabular-nums;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.engineering-output-panel {
+  margin-top: 18px;
+  padding: 15px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-soft);
+}
+
+.engineering-output-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.engineering-output-heading h3 {
+  margin: 0;
+  color: var(--ink-950);
+  font-size: 15px;
+  letter-spacing: -0.01em;
+}
+
+.engineering-output-heading .eyebrow {
+  margin-bottom: 2px;
+}
+
+.engineering-result-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.engineering-result-grid > div {
+  min-width: 0;
+  padding: 10px 11px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface);
+}
+
+.engineering-result-grid span {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--ink-500);
+  font-size: 9px;
+  font-weight: 850;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.engineering-result-grid strong,
+.engineering-result-grid code {
+  display: block;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--ink-950);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.engineering-output-note {
+  margin: 10px 0 0;
+  color: var(--ink-600);
+  font-size: 10px;
+}
+
+.engineering-warning-list {
+  display: grid;
+  gap: 6px;
+  margin: 12px 0 0;
+  padding: 10px 12px 10px 28px;
+  border-left: 4px solid var(--warning-800);
+  border-radius: 0 9px 9px 0;
+  background: var(--warning-100);
+  color: var(--warning-800);
+  font-size: 10px;
+}
+
+.engineering-warning-list:empty,
+.engineering-practical:empty {
+  display: none;
+}
+
+.engineering-practical {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+  color: var(--ink-700);
+  font-size: 11px;
 }
 
 .evidence-panel {
@@ -1930,6 +2122,7 @@ select.control {
   .field-grid.two-col,
   .field-grid.three-col,
   .metric-grid,
+  .engineering-result-grid,
   .project-grid,
   .bom-summary,
   .source-list,
@@ -1939,6 +2132,23 @@ select.control {
 
   .advanced-grid {
     padding-inline: 12px;
+  }
+
+  .engineering-fieldset {
+    padding-inline: 12px;
+  }
+
+  .control-combo {
+    grid-template-columns: 1fr;
+  }
+
+  .engineering-output-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .engineering-output-heading .state-badge {
+    align-self: flex-start;
   }
 
   .form-actions {
@@ -2094,6 +2304,11 @@ select.control {
 
   .material-evidence {
     grid-template-columns: 1fr;
+  }
+
+  .engineering-provenance,
+  .engineering-section-note {
+    overflow-wrap: anywhere;
   }
 
   .primary-result {

@@ -3,6 +3,8 @@ import {
   calculateShapeGeometry,
   getShape,
 } from "./shapes.js";
+import { calculateSectionProperties } from "./section-properties.js";
+import { calculateEngineeringScreening } from "./engineering.js";
 
 export const STANDARD_GRAVITY_MPS2 = 9.80665;
 
@@ -33,6 +35,8 @@ const blankResult = (errors, inputFingerprint = null) => ({
   formula: null,
   substitution: null,
   assumptions: [],
+  sectionProperties: null,
+  engineering: null,
   inputFingerprint,
 });
 
@@ -96,6 +100,7 @@ export function calculationFingerprint(input = {}) {
     wastePercent: input.wastePercent ?? 0,
     costPerKg: input.costPerKg ?? input.unitCostPerKg ?? null,
     currency: input.currency ?? "INR",
+    engineering: input.engineering ?? {},
   };
   return JSON.stringify(canonicalize(relevant));
 }
@@ -222,14 +227,18 @@ const parseQuantity = (rawQuantity) => {
       ],
     };
   }
-  if (!Number.isSafeInteger(parsed.value) || parsed.value < 1) {
+  if (
+    !Number.isSafeInteger(parsed.value)
+    || parsed.value < 1
+    || parsed.value > 1_000_000
+  ) {
     return {
       value: null,
       errors: [
         error(
           "quantity",
           "INVALID_QUANTITY",
-          "Quantity must be a positive safe integer; fractional quantities are not accepted.",
+          "Quantity must be a whole number from 1 to 1,000,000.",
           rawQuantity,
         ),
       ],
@@ -265,12 +274,12 @@ const parseTolerance = (rawTolerance) => {
     const minus = parsePercentage(
       "planningTolerancePercent.minus",
       rawTolerance.minus ?? 0,
-      99.999999,
+      50,
     );
     const plus = parsePercentage(
       "planningTolerancePercent.plus",
       rawTolerance.plus ?? 0,
-      1000,
+      50,
     );
     return {
       minus: minus.value,
@@ -281,7 +290,7 @@ const parseTolerance = (rawTolerance) => {
   const symmetric = parsePercentage(
     "planningTolerancePercent",
     rawTolerance ?? 0,
-    99.999999,
+    50,
   );
   return {
     minus: symmetric.value,
@@ -295,14 +304,14 @@ const parseOptionalCost = (rawCost) => {
     return { value: null, errors: [] };
   }
   const parsed = strictNumber(rawCost);
-  if (!parsed.ok || parsed.value < 0) {
+  if (!parsed.ok || parsed.value < 0 || parsed.value > 10_000_000) {
     return {
       value: null,
       errors: [
         error(
           "costPerKg",
           "INVALID_COST",
-          "Cost per kilogram must be a finite non-negative number.",
+          "Cost per kilogram must be between 0 and 10,000,000.",
           rawCost,
         ),
       ],
@@ -319,7 +328,7 @@ const parseOptionalCost = (rawCost) => {
  *   shapeId, materialId, dimensions, unitSystem: "metric"|"imperial",
  *   quantity=1, densityKgM3?, gravityMps2=9.80665,
  *   planningTolerancePercent=0 | {minus, plus},
- *   wastePercent=0, costPerKg?, currency="INR"
+ *   wastePercent=0, costPerKg?, currency="INR", engineering?
  * }
  */
 export function calculatePart(input = {}) {
@@ -379,7 +388,7 @@ export function calculatePart(input = {}) {
   const wasteResult = parsePercentage(
     "wastePercent",
     input.wastePercent ?? 0,
-    1000,
+    500,
   );
   errors.push(...wasteResult.errors);
 
@@ -420,6 +429,38 @@ export function calculatePart(input = {}) {
   );
   if (!geometry.ok) {
     return blankResult(geometry.errors, inputFingerprint);
+  }
+
+  const sectionProperties = calculateSectionProperties(
+    selectedShape.id,
+    normalized.normalizedDimensions,
+  );
+  if (sectionProperties.available && geometry.areaM2 !== null) {
+    const relativeAreaDifference =
+      Math.abs(sectionProperties.areaM2 - geometry.areaM2)
+      / Math.max(geometry.areaM2, 1e-18);
+    if (relativeAreaDifference > 1e-10) {
+      return blankResult(
+        [
+          error(
+            "dimensions",
+            "SECTION_AREA_MISMATCH",
+            "The mass and section-property models disagree on gross area.",
+          ),
+        ],
+        inputFingerprint,
+      );
+    }
+  }
+
+  const engineering = calculateEngineeringScreening({
+    section: sectionProperties,
+    densityKgM3,
+    costPerKg: costResult.value,
+    input: input.engineering ?? {},
+  });
+  if (!engineering.ok) {
+    return blankResult(engineering.errors, inputFingerprint);
   }
 
   const massPerPieceKg = geometry.volumeM3 * densityKgM3;
@@ -473,6 +514,9 @@ export function calculatePart(input = {}) {
     wasteResult.value
       ? "Procurement mass includes the entered planning waste allowance."
       : null,
+    sectionProperties.available
+      ? "Section properties use ideal gross geometry and are screening values, not designation-specific certified properties."
+      : null,
   ].filter(Boolean);
 
   return {
@@ -487,7 +531,9 @@ export function calculatePart(input = {}) {
         : "material-reference",
     normalizedDimensions: geometry.normalizedDimensions,
     volumeM3: geometry.volumeM3,
-    areaM2: geometry.areaM2,
+    areaM2:
+      geometry.areaM2
+      ?? (sectionProperties.available ? sectionProperties.areaM2 : null),
     quantity: quantityResult.value,
     massPerPieceKg,
     totalMassKg,
@@ -516,6 +562,8 @@ export function calculatePart(input = {}) {
     formula: geometry.formula,
     substitution: `${geometry.substitution}; m₁=V×ρ=${massPerPieceKg} kg; mₜ=m₁×${quantityResult.value}=${totalMassKg} kg`,
     assumptions,
+    sectionProperties,
+    engineering,
     inputFingerprint,
   };
 }

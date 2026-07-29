@@ -356,6 +356,10 @@ test("invalid numbers, unsupported units, density, gravity and fractional quanti
     { dimensions: { D: 20, L: 1 }, unitSystem: "parsec" },
     { dimensions: { D: 20, L: 1 }, densityKgM3: 0 },
     { dimensions: { D: 20, L: 1 }, gravityMps2: -1 },
+    { dimensions: { D: 20, L: 1 }, tolerancePercent: 50.1 },
+    { dimensions: { D: 20, L: 1 }, wastePercent: 500.1 },
+    { dimensions: { D: 20, L: 1 }, costPerKg: 10_000_001 },
+    { dimensions: { D: 20, L: 1 }, quantity: 1_000_001 },
     { dimensions: { D: 20, L: 1 }, quantity: Number.MAX_SAFE_INTEGER + 1 },
   ];
   for (const overrides of invalid) {
@@ -410,6 +414,68 @@ test("quantity, tolerance, waste, force and optional cost planning outputs", () 
   assert.equal(result.cost.currency, "INR");
 });
 
+test("part calculation integrates section properties and optional engineering screening", () => {
+  const engineering = {
+    material: {
+      yieldStrengthMpa: 250,
+      tensileStrengthMpa: 410,
+      elasticModulusGpa: 200,
+      poissonRatio: 0.3,
+      source: "Supplier datasheet",
+      condition: "As supplied",
+    },
+    loads: {
+      axialCompressionKn: 10,
+      bendingMomentXKnM: 0.1,
+      torqueKnM: 0.02,
+      columnLengthM: 1,
+      effectiveLengthFactor: 1,
+      deflectionCase: "simply-supported-point",
+      deflectionAxis: "x",
+      deflectionLoad: 0.1,
+      deflectionSpanM: 1,
+    },
+  };
+  const result = steel(
+    "round_bar",
+    { D: 20, L: 1 },
+    { engineering },
+  );
+
+  assert.equal(result.sectionProperties.available, true);
+  approximately(result.sectionProperties.areaM2 * 1e6, Math.PI * 100);
+  approximately(result.sectionProperties.inertiaM4.x * 1e12, Math.PI * 20 ** 4 / 64);
+  approximately(
+    result.sectionProperties.elasticSectionModulusM3.xMinimum * 1e9,
+    Math.PI * 20 ** 3 / 32,
+  );
+  approximately(result.sectionProperties.radiusOfGyrationM.principalMinimum * 1e3, 5);
+  approximately(
+    result.sectionProperties.torsion.constantM4,
+    result.sectionProperties.polarAreaMomentM4,
+  );
+  assert.equal(result.engineering.ok, true);
+  assert.equal(result.engineering.status, "within-entered-limit");
+  approximately(result.engineering.outputs.grossAxialYieldForceN, Math.PI * 100 * 250);
+  assert.ok(result.engineering.outputs.deflection.deflectionM > 0);
+  assert.ok(result.engineering.outputs.torsion.twistRad > 0);
+  assert.match(result.engineering.warnings.join(" "), /gross-section elastic screening/i);
+
+  const invalid = calculatePart({
+    shapeId: "round_bar",
+    materialId: "e250a",
+    dimensions: { D: 20, L: 1 },
+    engineering: {
+      material: {
+        yieldStrengthMpa: 350,
+        tensileStrengthMpa: 300,
+      },
+    },
+  });
+  assert.equal(invalid.ok, false);
+  assert.ok(invalid.errors.some(({ code }) => code === "UTS_BELOW_YIELD"));
+});
+
 test("fingerprint prevents stale results after dimensions or material changes", () => {
   const input = {
     shapeId: "round_bar",
@@ -430,6 +496,13 @@ test("fingerprint prevents stale results after dimensions or material changes", 
   assert.equal(
     isCalculationCurrent(result, { ...input, materialId: "al6061" }),
     false,
+  );
+  assert.notEqual(
+    calculationFingerprint(input),
+    calculationFingerprint({
+      ...input,
+      engineering: { material: { yieldStrengthMpa: 250 } },
+    }),
   );
 });
 

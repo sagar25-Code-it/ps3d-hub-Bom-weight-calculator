@@ -1,7 +1,7 @@
 {
   "name": "ps3d-hub-engineering-workbench",
-  "version": "2.0.1",
-  "description": "Traceable theoretical mass calculations and a local-first engineering BOM workspace.",
+  "version": "2.1.0",
+  "description": "Traceable theoretical mass, section properties, optional engineering screening, and a local-first BOM workspace.",
   "private": true,
   "type": "module",
   "license": "MIT",
@@ -12,7 +12,7 @@
     "dev": "node scripts/server.mjs",
     "preflight": "npm run build && npm run check && npm test",
     "test": "node --test",
-    "check": "node --check js/app.js && node --check js/engine.js && node --check js/export.js && node --check js/materials.js && node --check js/shapes.js && node --check js/storage.js && node --check scripts/build-public.mjs && npm run verify:deploy",
+    "check": "node --check js/app.js && node --check js/engine.js && node --check js/engineering.js && node --check js/section-properties.js && node --check js/export.js && node --check js/materials.js && node --check js/shapes.js && node --check js/storage.js && node --check scripts/build-public.mjs && node --check scripts/check-deployment.mjs && npm run verify:deploy",
     "verify:deploy": "node scripts/build-public.mjs --check"
   }
 }

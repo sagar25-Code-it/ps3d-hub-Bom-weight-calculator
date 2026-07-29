@@ -31,6 +31,7 @@ import {
   downloadText,
   safeFilename,
 } from "./export.js";
+import { normalizeEngineeringInput } from "./engineering.js";
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -62,12 +63,46 @@ const elements = {
   tolerance: $("#tolerance"),
   waste: $("#waste"),
   costPerKg: $("#cost-per-kg"),
+  yieldStrength: $("#yield-strength"),
+  tensileStrength: $("#tensile-strength"),
+  elasticModulus: $("#elastic-modulus"),
+  poissonRatio: $("#poisson-ratio"),
+  elongation: $("#elongation"),
+  hardnessValue: $("#hardness-value"),
+  hardnessScale: $("#hardness-scale"),
+  propertyCondition: $("#property-condition"),
+  propertySource: $("#property-source"),
+  axialLoad: $("#axial-load"),
+  bendingMomentX: $("#bending-moment-x"),
+  bendingMomentY: $("#bending-moment-y"),
+  torque: $("#torque"),
+  columnLength: $("#column-length"),
+  effectiveLengthFactor: $("#effective-length-factor"),
+  deflectionCase: $("#deflection-case"),
+  deflectionAxis: $("#deflection-axis"),
+  deflectionLoad: $("#deflection-load"),
+  deflectionLoadUnit: $("#deflection-load-unit"),
+  deflectionSpan: $("#deflection-span"),
+  designEnvironment: $("#design-environment"),
+  corrosionAssessment: $("#corrosion-assessment"),
+  fabricationAssessment: $("#fabrication-assessment"),
+  availabilityAssessment: $("#availability-assessment"),
+  practicalSource: $("#practical-source"),
+  practicalNotes: $("#practical-notes"),
   calculatorForm: $("#calculator-form"),
   calculatorErrors: $("#calculator-errors"),
   resetCalculator: $("#reset-calculator"),
   resultEmpty: $("#result-empty"),
   resultContent: $("#result-content"),
   resultDirty: $("#result-dirty"),
+  sectionPropertiesPanel: $("#section-properties-panel"),
+  sectionPropertiesGrid: $("#section-properties-grid"),
+  sectionPropertiesNote: $("#section-properties-note"),
+  engineeringScreeningPanel: $("#engineering-screening-panel"),
+  engineeringStatus: $("#engineering-status"),
+  engineeringScreeningGrid: $("#engineering-screening-grid"),
+  engineeringWarnings: $("#engineering-warnings"),
+  engineeringPractical: $("#engineering-practical"),
   shapeDiagram: $("#shape-diagram"),
   addToBom: $("#add-to-bom"),
   copyResult: $("#copy-result"),
@@ -120,7 +155,29 @@ const referenceStatuses = new Set([
 
 const loaded = loadState();
 let state = normalizeStoredState(loaded.state);
-state.bom = state.bom.map(sanitizeBomLine).filter(Boolean);
+let recoveredLineRefreshFailures = 0;
+state.bom = state.bom
+  .map((line, index) => {
+    try {
+      const recalculated = recalculateImportedLine(line, index);
+      return {
+        ...recalculated,
+        id: String(line.id || recalculated.id).slice(0, 100),
+        createdAt:
+          typeof line.createdAt === "string"
+            ? line.createdAt
+            : recalculated.createdAt,
+      };
+    } catch {
+      recoveredLineRefreshFailures += 1;
+      return sanitizeBomLine({
+        ...line,
+        sectionProperties: null,
+        engineeringSummary: null,
+      });
+    }
+  })
+  .filter(Boolean);
 let currentResult = null;
 let currentSnapshot = null;
 let resultMode = "empty";
@@ -149,6 +206,158 @@ function finiteNumber(value, fallback = null) {
 function nonNegative(value, fallback = 0) {
   const number = finiteNumber(value, fallback);
   return number !== null && number >= 0 ? number : fallback;
+}
+
+function optionalEngineeringNumber(value) {
+  const number = finiteNumber(value);
+  return number === null ? null : number;
+}
+
+function compactSectionProperties(section) {
+  if (!section || typeof section !== "object" || !section.available) {
+    return {
+      available: false,
+      applicability: "not-applicable",
+      note: String(section?.note || "Section properties are not available.").slice(0, 300),
+    };
+  }
+
+  const inertia = section.inertiaM4 || {};
+  const modulus = section.elasticSectionModulusM3 || {};
+  const radius = section.radiusOfGyrationM || {};
+  const torsion = section.torsion || {};
+  const areaM2 = finiteNumber(section.areaM2);
+  const ixM4 = finiteNumber(inertia.x);
+  const iyM4 = finiteNumber(inertia.y);
+  if (areaM2 === null || areaM2 <= 0 || ixM4 === null || ixM4 <= 0 || iyM4 === null || iyM4 <= 0) {
+    return {
+      available: false,
+      applicability: "invalid",
+      note: "Stored section properties were incomplete and were discarded.",
+    };
+  }
+
+  return {
+    available: true,
+    model: String(section.model || "Ideal gross section").slice(0, 180),
+    applicability: String(section.applicability || "prismatic").slice(0, 40),
+    confidence: String(section.confidence || "screening").slice(0, 60),
+    memberAxis: String(section.memberAxis || "").slice(0, 12),
+    memberLengthM: optionalEngineeringNumber(section.memberLengthM),
+    areaM2,
+    centroidM: {
+      x: finiteNumber(section.centroidM?.x, 0),
+      y: finiteNumber(section.centroidM?.y, 0),
+    },
+    inertiaM4: {
+      x: ixM4,
+      y: iyM4,
+      xy: finiteNumber(inertia.xy, 0),
+      principalMaximum: finiteNumber(inertia.principalMaximum, Math.max(ixM4, iyM4)),
+      principalMinimum: finiteNumber(inertia.principalMinimum, Math.min(ixM4, iyM4)),
+      principalAngleRad: finiteNumber(inertia.principalAngleRad, 0),
+    },
+    elasticSectionModulusM3: {
+      xPositive: finiteNumber(modulus.xPositive, 0),
+      xNegative: finiteNumber(modulus.xNegative, 0),
+      yPositive: finiteNumber(modulus.yPositive, 0),
+      yNegative: finiteNumber(modulus.yNegative, 0),
+      xMinimum: finiteNumber(modulus.xMinimum, 0),
+      yMinimum: finiteNumber(modulus.yMinimum, 0),
+    },
+    radiusOfGyrationM: {
+      x: finiteNumber(radius.x, 0),
+      y: finiteNumber(radius.y, 0),
+      principalMaximum: finiteNumber(radius.principalMaximum, 0),
+      principalMinimum: finiteNumber(radius.principalMinimum, 0),
+    },
+    polarAreaMomentM4: finiteNumber(section.polarAreaMomentM4, ixM4 + iyM4),
+    torsion: {
+      constantM4: optionalEngineeringNumber(torsion.constantM4),
+      method: String(torsion.method || "").slice(0, 80),
+      note: String(torsion.note || "").slice(0, 300),
+    },
+    assumptions: (Array.isArray(section.assumptions) ? section.assumptions : [])
+      .slice(0, 12)
+      .map((value) => String(value).slice(0, 300)),
+    warnings: (Array.isArray(section.warnings) ? section.warnings : [])
+      .slice(0, 12)
+      .map((value) => String(value).slice(0, 300)),
+  };
+}
+
+function compactEngineeringSummary(engineering) {
+  if (!engineering || typeof engineering !== "object") return null;
+  const output = engineering.outputs && typeof engineering.outputs === "object"
+    ? engineering.outputs
+    : {};
+  const numericKeys = [
+    "linearMassKgM",
+    "linearCost",
+    "grossAxialYieldForceN",
+    "firstYieldMomentXNm",
+    "firstYieldMomentYNm",
+    "specificYieldEnergyJkg",
+    "specificStiffnessJkg",
+    "axialCompressionStressPa",
+    "bendingStressEnvelopePa",
+    "combinedNormalStressEnvelopePa",
+    "yieldUtilization",
+    "yieldFactorAgainstEnteredValue",
+    "columnLengthM",
+    "effectiveLengthM",
+    "slendernessRatio",
+    "eulerFlexuralBucklingForceN",
+    "eulerUtilization",
+    "tensileStrengthPa",
+    "worstUtilization",
+  ];
+  const outputs = Object.fromEntries(
+    numericKeys.map((key) => [key, optionalEngineeringNumber(output[key])]),
+  );
+
+  if (output.deflection && typeof output.deflection === "object") {
+    outputs.deflection = {
+      loadCase: String(output.deflection.loadCase || "").slice(0, 60),
+      axis: output.deflection.axis === "y" ? "y" : "x",
+      spanM: optionalEngineeringNumber(output.deflection.spanM),
+      deflectionM: optionalEngineeringNumber(output.deflection.deflectionM),
+      spanToDeflectionRatio: optionalEngineeringNumber(output.deflection.spanToDeflectionRatio),
+      maximumMomentNm: optionalEngineeringNumber(output.deflection.maximumMomentNm),
+    };
+  }
+  if (output.torsion && typeof output.torsion === "object") {
+    outputs.torsion = {
+      torqueNm: optionalEngineeringNumber(output.torsion.torqueNm),
+      shearStressPa: optionalEngineeringNumber(output.torsion.shearStressPa),
+      twistRad: optionalEngineeringNumber(output.torsion.twistRad),
+      shearModulusPa: optionalEngineeringNumber(output.torsion.shearModulusPa),
+    };
+  }
+
+  const statuses = new Set([
+    "information-only",
+    "within-entered-limit",
+    "exceeds-entered-limit",
+    "unsupported-geometry",
+    "incomplete-input",
+  ]);
+  const status = statuses.has(engineering.status)
+    ? engineering.status
+    : "information-only";
+
+  return {
+    modelVersion: String(engineering.modelVersion || "").slice(0, 40),
+    status,
+    outputs,
+    warnings: (Array.isArray(engineering.warnings) ? engineering.warnings : [])
+      .slice(0, 30)
+      .map((value) => String(value).slice(0, 500)),
+    hasMaterialInputs: Boolean(engineering.hasMaterialInputs),
+    hasLoadInputs: Boolean(engineering.hasLoadInputs),
+    hasPracticalInputs: Boolean(engineering.hasPracticalInputs),
+    hasAnyInput: Boolean(engineering.hasAnyInput),
+  };
 }
 
 function createId() {
@@ -191,6 +400,10 @@ function sanitizeBomLine(line) {
   const totalMassKg = massPerPieceKg * quantity;
   const procurementMassKg = totalMassKg * (1 + wastePercent / 100);
   const costPerKg = Math.min(nonNegative(line.costPerKg), 10_000_000);
+  const normalizedEngineering = normalizeEngineeringInput(line.engineeringInputs || {});
+  const engineeringInputs = normalizedEngineering.errors.length
+    ? normalizeEngineeringInput({}).value
+    : normalizedEngineering.value;
 
   return {
     id: String(line.id || createId()).slice(0, 100),
@@ -222,7 +435,10 @@ function sanitizeBomLine(line) {
     estimatedCost: procurementMassKg * costPerKg,
     formula: String(line.formula || "").slice(0, 500),
     substitution: String(line.substitution || "").slice(0, 1_000),
-    assumptions: String(line.assumptions || "").slice(0, 1_000),
+    assumptions: String(line.assumptions || "").slice(0, 2_000),
+    engineeringInputs,
+    sectionProperties: compactSectionProperties(line.sectionProperties),
+    engineeringSummary: compactEngineeringSummary(line.engineeringSummary),
     createdAt: typeof line.createdAt === "string" ? line.createdAt : new Date().toISOString(),
   };
 }
@@ -534,6 +750,95 @@ function markResultDirty() {
   }
 }
 
+function readEngineeringDraft() {
+  return {
+    material: {
+      yieldStrengthMpa: finiteNumber(elements.yieldStrength.value),
+      tensileStrengthMpa: finiteNumber(elements.tensileStrength.value),
+      elasticModulusGpa: finiteNumber(elements.elasticModulus.value),
+      poissonRatio: finiteNumber(elements.poissonRatio.value),
+      elongationPercent: finiteNumber(elements.elongation.value),
+      hardnessValue: finiteNumber(elements.hardnessValue.value),
+      hardnessScale: elements.hardnessScale.value,
+      condition: elements.propertyCondition.value.trim(),
+      source: elements.propertySource.value.trim(),
+    },
+    loads: {
+      axialCompressionKn: finiteNumber(elements.axialLoad.value),
+      bendingMomentXKnM: finiteNumber(elements.bendingMomentX.value),
+      bendingMomentYKnM: finiteNumber(elements.bendingMomentY.value),
+      torqueKnM: finiteNumber(elements.torque.value),
+      columnLengthM: finiteNumber(elements.columnLength.value),
+      effectiveLengthFactor: finiteNumber(elements.effectiveLengthFactor.value, 1),
+      deflectionCase: elements.deflectionCase.value,
+      deflectionAxis: elements.deflectionAxis.value || "x",
+      deflectionLoad: finiteNumber(elements.deflectionLoad.value),
+      deflectionSpanM: finiteNumber(elements.deflectionSpan.value),
+    },
+    practical: {
+      environment: elements.designEnvironment.value,
+      corrosionAssessment: elements.corrosionAssessment.value,
+      fabricationAssessment: elements.fabricationAssessment.value,
+      availabilityAssessment: elements.availabilityAssessment.value,
+      source: elements.practicalSource.value.trim(),
+      notes: elements.practicalNotes.value.trim(),
+    },
+  };
+}
+
+function setControlValue(control, value) {
+  if (!control) return;
+  control.value = value === null || value === undefined ? "" : String(value);
+}
+
+function updateDeflectionLoadUnit() {
+  const isDistributed = elements.deflectionCase.value.endsWith("-udl");
+  elements.deflectionLoadUnit.value = isDistributed ? "kN/m" : "kN";
+  elements.deflectionLoadUnit.disabled = true;
+  elements.deflectionLoadUnit.title = isDistributed
+    ? "Uniformly distributed load is entered in kN/m."
+    : "Point load is entered in kN.";
+}
+
+function writeEngineeringControls(candidate = {}) {
+  const normalized = normalizeEngineeringInput(candidate);
+  const input = normalized.errors.length
+    ? normalizeEngineeringInput({}).value
+    : normalized.value;
+  const material = input.material;
+  const loads = input.loads;
+  const practical = input.practical;
+
+  setControlValue(elements.yieldStrength, material.yieldStrengthMpa);
+  setControlValue(elements.tensileStrength, material.tensileStrengthMpa);
+  setControlValue(elements.elasticModulus, material.elasticModulusGpa);
+  setControlValue(elements.poissonRatio, material.poissonRatio);
+  setControlValue(elements.elongation, material.elongationPercent);
+  setControlValue(elements.hardnessValue, material.hardnessValue);
+  setControlValue(elements.hardnessScale, material.hardnessScale);
+  setControlValue(elements.propertyCondition, material.condition);
+  setControlValue(elements.propertySource, material.source);
+
+  setControlValue(elements.axialLoad, loads.axialCompressionKn);
+  setControlValue(elements.bendingMomentX, loads.bendingMomentXKnM);
+  setControlValue(elements.bendingMomentY, loads.bendingMomentYKnM);
+  setControlValue(elements.torque, loads.torqueKnM);
+  setControlValue(elements.columnLength, loads.columnLengthM);
+  setControlValue(elements.effectiveLengthFactor, loads.effectiveLengthFactor);
+  setControlValue(elements.deflectionCase, loads.deflectionCase);
+  setControlValue(elements.deflectionAxis, loads.deflectionAxis);
+  setControlValue(elements.deflectionLoad, loads.deflectionLoad);
+  setControlValue(elements.deflectionSpan, loads.deflectionSpanM);
+
+  setControlValue(elements.designEnvironment, practical.environment);
+  setControlValue(elements.corrosionAssessment, practical.corrosionAssessment);
+  setControlValue(elements.fabricationAssessment, practical.fabricationAssessment);
+  setControlValue(elements.availabilityAssessment, practical.availabilityAssessment);
+  setControlValue(elements.practicalSource, practical.source);
+  setControlValue(elements.practicalNotes, practical.notes);
+  updateDeflectionLoadUnit();
+}
+
 function readCalculatorDraft() {
   const material = getMaterial(elements.materialSelect.value);
   const customDensityEnabled = elements.customDensityEnabled.checked;
@@ -557,6 +862,7 @@ function readCalculatorDraft() {
     wastePercent: finiteNumber(elements.waste.value, 0),
     costPerKg: finiteNumber(elements.costPerKg.value, 0),
     partName: elements.partName.value.trim().slice(0, 80),
+    engineering: readEngineeringDraft(),
   };
 }
 
@@ -589,6 +895,7 @@ function calculateDraft(draft) {
     tolerancePercent: draft.tolerancePercent,
     wastePercent: draft.wastePercent,
     costPerKg: draft.costPerKg,
+    engineering: draft.engineering,
   });
 }
 
@@ -603,6 +910,411 @@ function assumptionsText(result, shape, material, customDensity) {
       : `${material?.referenceStatus || "Reference"} density; verify against supplier or measured data for critical work.`,
   );
   return assumptions.join(" ");
+}
+
+function formatEngineeringValue(
+  value,
+  { scale = 1, unit = "", significantDigits = 6 } = {},
+) {
+  if (!Number.isFinite(value)) return "Not evaluated";
+  const scaled = value * scale;
+  const magnitude = Math.abs(scaled);
+  const number = magnitude > 0 && (magnitude >= 1e9 || magnitude < 1e-3)
+    ? scaled.toExponential(Math.max(2, significantDigits - 1))
+    : scaled.toLocaleString("en-IN", {
+      maximumSignificantDigits: significantDigits,
+    });
+  return unit ? `${number} ${unit}` : number;
+}
+
+function renderEngineeringMetrics(container, items) {
+  container.replaceChildren();
+  items
+    .filter((item) => item && item.value !== null && item.value !== undefined)
+    .forEach(({ label, value }) => {
+      const metric = document.createElement("div");
+      const name = document.createElement("span");
+      const result = document.createElement("strong");
+      name.textContent = label;
+      result.textContent = value;
+      metric.append(name, result);
+      container.appendChild(metric);
+    });
+}
+
+function renderSectionProperties(result) {
+  const section = result.sectionProperties;
+  elements.sectionPropertiesPanel.hidden = false;
+  elements.sectionPropertiesGrid.replaceChildren();
+
+  if (!section?.available) {
+    renderEngineeringMetrics(elements.sectionPropertiesGrid, [
+      {
+        label: "Applicability",
+        value: "Not available for this geometry interpretation",
+      },
+    ]);
+    elements.sectionPropertiesNote.textContent =
+      `${section?.note || "Section properties are not available."} No zero-value substitute has been used.`;
+    return;
+  }
+
+  const inertia = section.inertiaM4;
+  const modulus = section.elasticSectionModulusM3;
+  const radius = section.radiusOfGyrationM;
+  const torsion = section.torsion;
+  const outputs = result.engineering?.outputs || {};
+  const asymmetric = Math.abs(inertia.xy) > Math.max(inertia.x, inertia.y) * 1e-10;
+  const unequalXModuli =
+    Math.abs(modulus.xPositive - modulus.xNegative)
+    > Math.max(modulus.xPositive, modulus.xNegative) * 1e-10;
+  const unequalYModuli =
+    Math.abs(modulus.yPositive - modulus.yNegative)
+    > Math.max(modulus.yPositive, modulus.yNegative) * 1e-10;
+  const items = [
+    {
+      label: "Cross-sectional area A",
+      value: formatEngineeringValue(section.areaM2, { scale: 1e6, unit: "mm²" }),
+    },
+    {
+      label: "Moment of inertia Ix",
+      value: formatEngineeringValue(inertia.x, { scale: 1e12, unit: "mm⁴" }),
+    },
+    {
+      label: "Moment of inertia Iy",
+      value: formatEngineeringValue(inertia.y, { scale: 1e12, unit: "mm⁴" }),
+    },
+    {
+      label: "Product of inertia Ixy",
+      value: formatEngineeringValue(inertia.xy, { scale: 1e12, unit: "mm⁴" }),
+    },
+    {
+      label: "Minimum elastic modulus Sx",
+      value: formatEngineeringValue(modulus.xMinimum, { scale: 1e9, unit: "mm³" }),
+    },
+    {
+      label: "Minimum elastic modulus Sy",
+      value: formatEngineeringValue(modulus.yMinimum, { scale: 1e9, unit: "mm³" }),
+    },
+    unequalXModuli
+      ? {
+        label: "Elastic Sx (+ / − extreme fibres)",
+        value: `${formatEngineeringValue(modulus.xPositive, { scale: 1e9, unit: "mm³" })} / ${formatEngineeringValue(modulus.xNegative, { scale: 1e9, unit: "mm³" })}`,
+      }
+      : null,
+    unequalYModuli
+      ? {
+        label: "Elastic Sy (+ / − extreme fibres)",
+        value: `${formatEngineeringValue(modulus.yPositive, { scale: 1e9, unit: "mm³" })} / ${formatEngineeringValue(modulus.yNegative, { scale: 1e9, unit: "mm³" })}`,
+      }
+      : null,
+    {
+      label: "Polar area moment Jp = Ix + Iy",
+      value: formatEngineeringValue(section.polarAreaMomentM4, { scale: 1e12, unit: "mm⁴" }),
+    },
+    {
+      label: "Saint-Venant torsion constant Jt",
+      value: torsion?.constantM4 === null
+        ? "Not evaluated"
+        : formatEngineeringValue(torsion?.constantM4, { scale: 1e12, unit: "mm⁴" }),
+    },
+    {
+      label: "Minimum radius of gyration",
+      value: formatEngineeringValue(radius.principalMinimum, { scale: 1e3, unit: "mm" }),
+    },
+    asymmetric
+      ? {
+        label: "Minimum principal inertia",
+        value: formatEngineeringValue(inertia.principalMinimum, { scale: 1e12, unit: "mm⁴" }),
+      }
+      : null,
+    asymmetric
+      ? {
+        label: "Maximum principal inertia",
+        value: formatEngineeringValue(inertia.principalMaximum, { scale: 1e12, unit: "mm⁴" }),
+      }
+      : null,
+    asymmetric
+      ? {
+        label: "Principal-axis angle",
+        value: formatEngineeringValue(inertia.principalAngleRad, {
+          scale: 180 / Math.PI,
+          unit: "deg",
+        }),
+      }
+      : null,
+    Number.isFinite(outputs.linearMassKgM)
+      ? {
+        label: "Linear mass",
+        value: formatEngineeringValue(outputs.linearMassKgM, { unit: "kg/m" }),
+      }
+      : null,
+    Number.isFinite(outputs.linearCost) && outputs.linearCost > 0
+      ? {
+        label: "Linear material cost",
+        value: `${formatCurrency(outputs.linearCost)} / m`,
+      }
+      : null,
+  ];
+  renderEngineeringMetrics(elements.sectionPropertiesGrid, items);
+
+  const notes = [
+    `${section.model}.`,
+    torsion?.note,
+    ...(section.warnings || []).slice(0, 3),
+    "Axes pass through the idealized gross-section centroid; x and y lie in the section plane and z follows the member.",
+  ].filter(Boolean);
+  elements.sectionPropertiesNote.textContent = notes.join(" ");
+}
+
+const engineeringStatusLabels = Object.freeze({
+  "information-only": "Information only — no utilization",
+  "within-entered-limit": "Entered yield / Euler screens ≤ 1.0",
+  "exceeds-entered-limit": "Entered yield / Euler screen > 1.0",
+  "unsupported-geometry": "Section screening unavailable",
+  "incomplete-input": "Optional input incomplete",
+});
+
+const practicalLabels = Object.freeze({
+  "indoor-dry": "Indoor / dry",
+  outdoor: "Outdoor / atmospheric",
+  "wet-marine": "Wet / marine / chloride",
+  chemical: "Chemical / process",
+  "elevated-temperature": "Elevated temperature",
+  "low-temperature": "Low temperature",
+  other: "Other / project-specific",
+  favourable: "Favourable for stated environment",
+  conditional: "Conditional — protection or review required",
+  unfavourable: "Unfavourable without mitigation",
+  "not-assessed": "Not assessed",
+  straightforward: "Straightforward for planned process",
+  "process-dependent": "Process / condition dependent",
+  specialist: "Specialist review required",
+  "in-stock": "In stock",
+  limited: "Limited availability",
+  "made-to-order": "Made to order",
+  "supplier-quoted": "Supplier quoted",
+  discontinued: "Discontinued / unavailable",
+});
+
+function practicalLabel(value) {
+  return practicalLabels[value] || value || "Not entered";
+}
+
+function renderEngineeringPractical(practical) {
+  elements.engineeringPractical.replaceChildren();
+  if (!practical || !Object.values(practical).some((value) => value)) return;
+
+  const title = document.createElement("strong");
+  title.textContent = "Practical selection — user assessment";
+  const summary = document.createElement("p");
+  summary.textContent = [
+    practical.environment ? `Environment: ${practicalLabel(practical.environment)}` : "",
+    practical.corrosionAssessment
+      ? `Corrosion: ${practicalLabel(practical.corrosionAssessment)}`
+      : "",
+    practical.fabricationAssessment
+      ? `Fabrication: ${practicalLabel(practical.fabricationAssessment)}`
+      : "",
+    practical.availabilityAssessment
+      ? `Availability: ${practicalLabel(practical.availabilityAssessment)}`
+      : "",
+  ].filter(Boolean).join(" · ");
+  elements.engineeringPractical.append(title, summary);
+
+  if (practical.source) {
+    const source = document.createElement("p");
+    source.textContent = `Basis/source: ${practical.source}`;
+    elements.engineeringPractical.appendChild(source);
+  }
+  if (practical.notes) {
+    const notes = document.createElement("p");
+    notes.textContent = `Notes: ${practical.notes}`;
+    elements.engineeringPractical.appendChild(notes);
+  }
+}
+
+function renderEngineeringScreening(result) {
+  const engineering = result.engineering;
+  elements.engineeringScreeningPanel.hidden = false;
+  elements.engineeringScreeningGrid.replaceChildren();
+  elements.engineeringWarnings.replaceChildren();
+  elements.engineeringPractical.replaceChildren();
+
+  if (!engineering) {
+    elements.engineeringStatus.textContent = "Not evaluated";
+    elements.engineeringStatus.className = "state-badge neutral";
+    return;
+  }
+
+  const material = engineering.inputs?.material || {};
+  const outputs = engineering.outputs || {};
+  const status = engineering.status || "information-only";
+  elements.engineeringStatus.textContent =
+    engineeringStatusLabels[status] || "Information only";
+  elements.engineeringStatus.className =
+    `state-badge ${["exceeds-entered-limit", "incomplete-input"].includes(status) ? "warning" : "neutral"}`;
+
+  const metrics = [
+    Number.isFinite(material.yieldStrengthMpa)
+      ? {
+        label: "Entered yield / proof strength",
+        value: formatEngineeringValue(material.yieldStrengthMpa, { unit: "MPa" }),
+      }
+      : null,
+    Number.isFinite(material.tensileStrengthMpa)
+      ? {
+        label: "Entered ultimate tensile strength",
+        value: formatEngineeringValue(material.tensileStrengthMpa, { unit: "MPa" }),
+      }
+      : null,
+    Number.isFinite(material.elasticModulusGpa)
+      ? {
+        label: "Entered elastic modulus E",
+        value: formatEngineeringValue(material.elasticModulusGpa, { unit: "GPa" }),
+      }
+      : null,
+    Number.isFinite(material.poissonRatio)
+      ? {
+        label: "Entered Poisson ratio ν",
+        value: formatEngineeringValue(material.poissonRatio),
+      }
+      : null,
+    Number.isFinite(material.elongationPercent)
+      ? {
+        label: "Entered elongation",
+        value: formatEngineeringValue(material.elongationPercent, { unit: "%" }),
+      }
+      : null,
+    Number.isFinite(material.hardnessValue) && material.hardnessScale
+      ? {
+        label: "Entered hardness",
+        value: `${formatEngineeringValue(material.hardnessValue)} ${material.hardnessScale}`,
+      }
+      : null,
+    material.condition
+      ? {
+        label: "Mechanical-property condition",
+        value: material.condition,
+      }
+      : null,
+    material.source
+      ? {
+        label: "Mechanical-property source",
+        value: material.source,
+      }
+      : null,
+    Number.isFinite(outputs.grossAxialYieldForceN)
+      ? {
+        label: "Gross axial yield force",
+        value: formatEngineeringValue(outputs.grossAxialYieldForceN, { scale: 1e-3, unit: "kN" }),
+      }
+      : null,
+    Number.isFinite(outputs.firstYieldMomentXNm)
+      ? {
+        label: "First-yield moment about x",
+        value: formatEngineeringValue(outputs.firstYieldMomentXNm, { scale: 1e-3, unit: "kN·m" }),
+      }
+      : null,
+    Number.isFinite(outputs.firstYieldMomentYNm)
+      ? {
+        label: "First-yield moment about y",
+        value: formatEngineeringValue(outputs.firstYieldMomentYNm, { scale: 1e-3, unit: "kN·m" }),
+      }
+      : null,
+    Number.isFinite(outputs.combinedNormalStressEnvelopePa)
+      ? {
+        label: "Combined normal-stress envelope",
+        value: formatEngineeringValue(outputs.combinedNormalStressEnvelopePa, { scale: 1e-6, unit: "MPa" }),
+      }
+      : null,
+    Number.isFinite(outputs.yieldUtilization)
+      ? {
+        label: "Entered-yield utilization",
+        value: formatEngineeringValue(outputs.yieldUtilization, { scale: 100, unit: "%", significantDigits: 5 }),
+      }
+      : null,
+    Number.isFinite(outputs.yieldFactorAgainstEnteredValue)
+      ? {
+        label: "Factor to entered yield value",
+        value: formatEngineeringValue(outputs.yieldFactorAgainstEnteredValue, { significantDigits: 5 }),
+      }
+      : null,
+    Number.isFinite(outputs.eulerFlexuralBucklingForceN)
+      ? {
+        label: "Euler flexural load screen",
+        value: formatEngineeringValue(outputs.eulerFlexuralBucklingForceN, { scale: 1e-3, unit: "kN" }),
+      }
+      : null,
+    Number.isFinite(outputs.slendernessRatio)
+      ? {
+        label: "Effective slenderness KL/rmin",
+        value: formatEngineeringValue(outputs.slendernessRatio, { significantDigits: 5 }),
+      }
+      : null,
+    Number.isFinite(outputs.eulerUtilization)
+      ? {
+        label: "Euler-screen utilization",
+        value: formatEngineeringValue(outputs.eulerUtilization, { scale: 100, unit: "%", significantDigits: 5 }),
+      }
+      : null,
+    outputs.deflection
+      ? {
+        label: `Elastic deflection (${outputs.deflection.axis}-axis)`,
+        value: formatEngineeringValue(outputs.deflection.deflectionM, { scale: 1e3, unit: "mm" }),
+      }
+      : null,
+    outputs.deflection && Number.isFinite(outputs.deflection.spanToDeflectionRatio)
+      ? {
+        label: "Span / calculated deflection",
+        value: `L / ${formatEngineeringValue(outputs.deflection.spanToDeflectionRatio, { significantDigits: 5 })}`,
+      }
+      : null,
+    outputs.torsion && Number.isFinite(outputs.torsion.shearStressPa)
+      ? {
+        label: "Torsional shear-stress screen",
+        value: formatEngineeringValue(outputs.torsion.shearStressPa, { scale: 1e-6, unit: "MPa" }),
+      }
+      : null,
+    outputs.torsion && Number.isFinite(outputs.torsion.twistRad)
+      ? {
+        label: "Saint-Venant twist",
+        value: formatEngineeringValue(outputs.torsion.twistRad, {
+          scale: 180 / Math.PI,
+          unit: "deg",
+        }),
+      }
+      : null,
+    Number.isFinite(outputs.specificYieldEnergyJkg)
+      ? {
+        label: "Specific yield metric Fy / ρ",
+        value: formatEngineeringValue(outputs.specificYieldEnergyJkg, { unit: "J/kg" }),
+      }
+      : null,
+    Number.isFinite(outputs.specificStiffnessJkg)
+      ? {
+        label: "Specific stiffness E / ρ",
+        value: formatEngineeringValue(outputs.specificStiffnessJkg, { unit: "J/kg" }),
+      }
+      : null,
+  ];
+
+  if (!metrics.some(Boolean)) {
+    metrics.push({
+      label: "Optional screening",
+      value: engineering.hasAnyInput
+        ? "No supported demand result from the entered combination"
+        : "Add sourced material properties or loads to evaluate demand screens",
+    });
+  }
+  renderEngineeringMetrics(elements.engineeringScreeningGrid, metrics);
+
+  (engineering.warnings || []).slice(0, 16).forEach((warning) => {
+    const item = document.createElement("li");
+    item.textContent = warning;
+    elements.engineeringWarnings.appendChild(item);
+  });
+  renderEngineeringPractical(engineering.practical);
 }
 
 function renderResult(result, draft) {
@@ -643,6 +1355,8 @@ function renderResult(result, draft) {
     : referenceStatusLabel(material?.referenceStatus);
   $("#result-state").className = "state-badge warning";
   renderShapeDiagram(shape);
+  renderSectionProperties(result);
+  renderEngineeringScreening(result);
 
   elements.resultEmpty.hidden = true;
   elements.resultDirty.hidden = true;
@@ -688,6 +1402,9 @@ function renderResult(result, draft) {
     formula: result.formula || shape.equation || "",
     substitution: result.substitution || "",
     assumptions: assumptionsText(result, shape, material, draft.customDensity),
+    engineeringInputs: result.engineering.inputs,
+    sectionProperties: compactSectionProperties(result.sectionProperties),
+    engineeringSummary: compactEngineeringSummary(result.engineering),
     createdAt: new Date().toISOString(),
   };
   resultMode = "valid";
@@ -722,6 +1439,7 @@ function resetCalculator() {
   materialQuery = "";
   elements.materialSearch.value = "";
   elements.customDensityWrap.hidden = true;
+  writeEngineeringControls({});
   renderShapeOptions("");
   renderMaterialOptions("");
   renderShapeNote();
@@ -732,6 +1450,8 @@ function resetCalculator() {
   elements.resultContent.hidden = true;
   elements.resultDirty.hidden = true;
   elements.resultEmpty.hidden = false;
+  elements.sectionPropertiesPanel.hidden = true;
+  elements.engineeringScreeningPanel.hidden = true;
   elements.addToBom.disabled = true;
   cancelBomEdit();
 }
@@ -746,6 +1466,10 @@ function addCurrentToBom() {
     const index = state.bom.findIndex((line) => line.id === editingLineId);
     if (index >= 0) {
       const updated = sanitizeBomLine({ ...currentSnapshot, id: editingLineId });
+      if (!updated) {
+        showToast("This result cannot be stored as a BOM line. Check quantity and density.");
+        return;
+      }
       state.bom[index] = updated;
       const updatedName = updated.partName;
       cancelBomEdit();
@@ -761,7 +1485,12 @@ function addCurrentToBom() {
     return;
   }
 
-  state.bom.push(sanitizeBomLine({ ...currentSnapshot, id: createId() }));
+  const bomLine = sanitizeBomLine({ ...currentSnapshot, id: createId() });
+  if (!bomLine) {
+    showToast("This result cannot be stored as a BOM line. Check quantity and density.");
+    return;
+  }
+  state.bom.push(bomLine);
   undoStack = [];
   renderBom();
   scheduleSave();
@@ -778,15 +1507,23 @@ function cancelBomEdit({ announce = false } = {}) {
 async function copyResultSummary() {
   if (!currentSnapshot) return;
   const line = currentSnapshot;
+  const section = line.sectionProperties;
+  const engineering = line.engineeringSummary;
   const summary = [
     `${line.partName} — ${line.shapeName}`,
     `${line.materialName} @ ${line.densityKgM3} kg/m³`,
     `${line.dimensionSummary}`,
     `${formatMass(line.massPerPieceKg)} each × ${line.quantity} = ${formatMass(line.totalMassKg)}`,
     `Procurement: ${formatMass(line.procurementMassKg)}`,
+    section?.available
+      ? `Section: A ${formatEngineeringValue(section.areaM2, { scale: 1e6, unit: "mm²" })}; Ix ${formatEngineeringValue(section.inertiaM4.x, { scale: 1e12, unit: "mm⁴" })}; Iy ${formatEngineeringValue(section.inertiaM4.y, { scale: 1e12, unit: "mm⁴" })}; rmin ${formatEngineeringValue(section.radiusOfGyrationM.principalMinimum, { scale: 1e3, unit: "mm" })}`
+      : "Section properties: not available for this geometry interpretation",
+    engineering
+      ? `Engineering status: ${engineeringStatusLabels[engineering.status] || engineering.status}`
+      : null,
     `Formula: ${line.formula}`,
-    "Theoretical estimate; verify critical values against project and supplier documents.",
-  ].join("\n");
+    "Theoretical mass and gross-section screening only; verify critical values against project, supplier, and governing-code documents.",
+  ].filter(Boolean).join("\n");
   try {
     await navigator.clipboard.writeText(summary);
     showToast("Calculation summary copied.");
@@ -813,6 +1550,18 @@ function updateBomSummary() {
 }
 
 function bomRowTemplate(line, index) {
+  const sectionSummary = line.sectionProperties?.available
+    ? `Sx(min) ${formatEngineeringValue(line.sectionProperties.elasticSectionModulusM3.xMinimum, {
+      scale: 1e9,
+      unit: "mm³",
+    })} · rmin ${formatEngineeringValue(line.sectionProperties.radiusOfGyrationM.principalMinimum, {
+      scale: 1e3,
+      unit: "mm",
+    })}`
+    : "";
+  const engineeringSummary = line.engineeringSummary?.hasAnyInput
+    ? engineeringStatusLabels[line.engineeringSummary.status] || line.engineeringSummary.status
+    : "";
   return `
     <tr data-line-id="${escapeHtml(line.id)}">
       <td data-label="Line"><span class="bom-line-number">${index + 1}</span></td>
@@ -824,6 +1573,8 @@ function bomRowTemplate(line, index) {
       <td data-label="Shape & dimensions">
         <span class="bom-primary">${escapeHtml(line.shapeName)}</span>
         <span class="bom-secondary">${escapeHtml(line.dimensionSummary)}</span>
+        ${sectionSummary ? `<span class="bom-secondary">${escapeHtml(sectionSummary)}</span>` : ""}
+        ${engineeringSummary ? `<span class="bom-secondary">${escapeHtml(engineeringSummary)}</span>` : ""}
       </td>
       <td data-label="Material">
         <span class="bom-primary">${escapeHtml(line.materialName)}</span>
@@ -875,6 +1626,7 @@ function updateBomLine(lineId, field, value) {
     }
     line.quantity = quantity;
     line.totalMassKg = line.massPerPieceKg * quantity;
+    line.forceN = line.totalMassKg * 9.80665;
     line.procurementMassKg = line.totalMassKg * (1 + line.wastePercent / 100);
     line.estimatedCost = line.procurementMassKg * line.costPerKg;
   }
@@ -977,6 +1729,7 @@ function loadBomLine(lineId) {
   elements.tolerance.value = line.tolerancePercent;
   elements.waste.value = line.wastePercent;
   elements.costPerKg.value = line.costPerKg;
+  writeEngineeringControls(line.engineeringInputs || {});
   editingLineId = line.id;
   elements.addToBom.textContent = "Update BOM line";
   elements.cancelBomEdit.hidden = false;
@@ -1029,6 +1782,7 @@ function handleBomDraftInput(event) {
     if (quantity === null || !Number.isInteger(quantity) || quantity < 1 || quantity > 1_000_000) return;
     line.quantity = quantity;
     line.totalMassKg = line.massPerPieceKg * quantity;
+    line.forceN = line.totalMassKg * 9.80665;
     line.procurementMassKg = line.totalMassKg * (1 + line.wastePercent / 100);
     line.estimatedCost = line.procurementMassKg * line.costPerKg;
     const nominal = $('[data-label="Nominal total"] .bom-mass', row);
@@ -1072,6 +1826,9 @@ function recalculateImportedLine(line, index) {
   const costPerKg = finiteNumber(line.costPerKg, 0);
   const unitSystem = line.unitSystem === "imperial" ? "imperial" : "metric";
   const dimensions = line.dimensions && typeof line.dimensions === "object" ? line.dimensions : {};
+  const engineeringInputs = line.engineeringInputs && typeof line.engineeringInputs === "object"
+    ? line.engineeringInputs
+    : {};
 
   const result = calculatePart({
     shapeId: shape.id,
@@ -1082,6 +1839,7 @@ function recalculateImportedLine(line, index) {
     tolerancePercent,
     wastePercent,
     costPerKg,
+    engineering: engineeringInputs,
   });
   if (!result.ok) throw new Error(`Line ${index + 1} cannot be recalculated from its saved inputs.`);
 
@@ -1129,6 +1887,9 @@ function recalculateImportedLine(line, index) {
     formula: result.formula || shape.equation || "",
     substitution: result.substitution || "",
     assumptions: assumptionValue,
+    engineeringInputs: result.engineering.inputs,
+    sectionProperties: compactSectionProperties(result.sectionProperties),
+    engineeringSummary: compactEngineeringSummary(result.engineering),
   });
 }
 
@@ -1301,6 +2062,38 @@ function bindEvents() {
   elements.waste.addEventListener("input", markResultDirty);
   elements.costPerKg.addEventListener("input", markResultDirty);
   elements.dimensionFields.addEventListener("input", markResultDirty);
+  [
+    elements.yieldStrength,
+    elements.tensileStrength,
+    elements.elasticModulus,
+    elements.poissonRatio,
+    elements.elongation,
+    elements.hardnessValue,
+    elements.propertyCondition,
+    elements.propertySource,
+    elements.axialLoad,
+    elements.bendingMomentX,
+    elements.bendingMomentY,
+    elements.torque,
+    elements.columnLength,
+    elements.effectiveLengthFactor,
+    elements.deflectionLoad,
+    elements.deflectionSpan,
+    elements.practicalSource,
+    elements.practicalNotes,
+  ].forEach((control) => control.addEventListener("input", markResultDirty));
+  [
+    elements.hardnessScale,
+    elements.deflectionAxis,
+    elements.designEnvironment,
+    elements.corrosionAssessment,
+    elements.fabricationAssessment,
+    elements.availabilityAssessment,
+  ].forEach((control) => control.addEventListener("change", markResultDirty));
+  elements.deflectionCase.addEventListener("change", () => {
+    updateDeflectionLoadUnit();
+    markResultDirty();
+  });
 
   elements.calculatorForm.addEventListener("submit", handleCalculate);
   elements.calculatorForm.addEventListener("reset", () => {
@@ -1367,6 +2160,7 @@ function initialize() {
   renderDimensionFields();
   renderShapeNote();
   renderMaterialEvidence();
+  writeEngineeringControls({});
   renderSources();
   syncProjectInputsFromState();
   renderBom();
@@ -1378,16 +2172,22 @@ function initialize() {
   elements.addToBom.disabled = true;
   bindEvents();
   loadContact();
+  if (loaded.status === "loaded" && state.bom.length) scheduleSave();
 
   if (loaded.status === "unavailable") {
     showToast("Browser storage is unavailable. Use Download JSON to keep a backup.", 6_000);
     elements.saveStatus.textContent = "Local save unavailable";
+  } else if (recoveredLineRefreshFailures > 0) {
+    showToast(
+      `Recovered the BOM, but cleared stale engineering outputs on ${recoveredLineRefreshFailures} line${recoveredLineRefreshFailures === 1 ? "" : "s"}. Load and recalculate those lines before use.`,
+      8_000,
+    );
   } else if (loaded.status === "loaded" && state.bom.length) {
     showToast(`Recovered ${state.bom.length} saved BOM line${state.bom.length === 1 ? "" : "s"}.`);
   }
 
   if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
-    navigator.serviceWorker.register("./sw.js?v=2.0.1").catch(() => {});
+    navigator.serviceWorker.register("./sw.js?v=2.1.0").catch(() => {});
   }
 }
 

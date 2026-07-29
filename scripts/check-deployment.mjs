@@ -3,8 +3,10 @@ const assetChecks = [
   { path: "/styles.css", type: "text/css", minimumBytes: 10_000, marker: "--ps3d-ui-ready: 1" },
   { path: "/js/app.js", type: "javascript", minimumBytes: 10_000 },
   { path: "/js/engine.js", type: "javascript", minimumBytes: 5_000 },
+  { path: "/js/engineering.js", type: "javascript", minimumBytes: 10_000 },
   { path: "/js/export.js", type: "javascript", minimumBytes: 1_000 },
   { path: "/js/materials.js", type: "javascript", minimumBytes: 10_000 },
+  { path: "/js/section-properties.js", type: "javascript", minimumBytes: 10_000 },
   { path: "/js/shapes.js", type: "javascript", minimumBytes: 10_000 },
   { path: "/js/storage.js", type: "javascript", minimumBytes: 1_000 },
   { path: "/sw.js", type: "javascript", minimumBytes: 500 },
@@ -39,7 +41,7 @@ async function inspectAsset(origin, check) {
     const response = await fetch(new URL(check.path, origin), {
       redirect: "follow",
       signal: controller.signal,
-      headers: { "User-Agent": "PS3D-Deployment-Check/2.0.1" },
+      headers: { "User-Agent": "PS3D-Deployment-Check/2.1.0" },
     });
     const body = new Uint8Array(await response.arrayBuffer());
     const contentType = response.headers.get("content-type") || "";

@@ -56,6 +56,36 @@ export const AUTHORITATIVE_SOURCES = Object.freeze({
     url: "https://www.nist.gov/pml/owm/si-units-mass",
     role: "Distinguishes mass from force and confirms lowercase t for tonne.",
   }),
+  ASTM_E8_E8M_2025: Object.freeze({
+    title: "ASTM E8/E8M-25 — Tension Testing of Metallic Materials",
+    url: "https://store.astm.org/e0008_e0008m-25.html",
+    role:
+      "Metallic tensile test method for defined specimens and test conditions. It does not assign grade-property values or guarantee whole-product or in-service performance.",
+  }),
+  ASTM_E111_2025: Object.freeze({
+    title: "ASTM E111-17(2025)e1 — Young's, Tangent, and Chord Modulus",
+    url: "https://store.astm.org/standards/e111",
+    role:
+      "Modulus test method whose applicability depends on loading mode, orientation, temperature, stress range, and specimen history. It is not a source of a universal modulus for a material name.",
+  }),
+  ASTM_E18_2025: Object.freeze({
+    title: "ASTM E18-25 — Rockwell Hardness of Metallic Materials",
+    url: "https://store.astm.org/standards/e18",
+    role:
+      "Empirical local indentation test method for specified Rockwell scales and test conditions. A result is not a universal tensile-strength conversion or proof of whole-part characteristics.",
+  }),
+  ISO_12944_2_2017: Object.freeze({
+    title: "ISO 12944-2:2017 — Classification of Corrosive Environments",
+    url: "https://www.iso.org/standard/64834.html",
+    role:
+      "Gross environmental-corrosivity screening for protective paint-system selection on steel structures. It is not a universal alloy corrosion rating, compatibility decision, or coating-life prediction.",
+  }),
+  AISC_360_2022: Object.freeze({
+    title: "ANSI/AISC 360-22 — Specification for Structural Steel Buildings",
+    url: "https://www.aisc.org/aisc/publications/current-standards/aisc-360/",
+    role:
+      "Structural-steel building design and construction applicability reference for LRFD/ASD. It supports gross code-scope screening only and is not a material certificate or standalone member-capacity result.",
+  }),
   ASTM_D2000: Object.freeze({
     title: "ASTM D2000 — Rubber classification system",
     url: "https://store.astm.org/standards/d2000",

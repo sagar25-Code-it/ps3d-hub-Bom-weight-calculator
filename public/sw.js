@@ -1,4 +1,4 @@
-const CACHE_NAME = "ps3d-workbench-v2.0.1-20260728";
+const CACHE_NAME = "ps3d-workbench-v2.1.0-20260729";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -8,8 +8,10 @@ const APP_SHELL = [
   "./manifest.webmanifest",
   "./js/app.js",
   "./js/engine.js",
+  "./js/engineering.js",
   "./js/export.js",
   "./js/materials.js",
+  "./js/section-properties.js",
   "./js/shapes.js",
   "./js/storage.js"
 ];

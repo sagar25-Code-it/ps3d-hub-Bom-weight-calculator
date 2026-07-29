@@ -103,12 +103,49 @@ test("CSV export neutralizes spreadsheet formula injection", () => {
         estimatedCost: 0,
         formula: "πD²L/4",
         referenceStatus: "reference",
+        sectionProperties: {
+          available: true,
+          areaM2: Math.PI * 0.02 ** 2 / 4,
+          inertiaM4: { x: Math.PI * 0.02 ** 4 / 64, y: Math.PI * 0.02 ** 4 / 64, xy: 0 },
+          elasticSectionModulusM3: {
+            xMinimum: Math.PI * 0.02 ** 3 / 32,
+            yMinimum: Math.PI * 0.02 ** 3 / 32,
+          },
+          radiusOfGyrationM: { principalMinimum: 0.005 },
+          polarAreaMomentM4: Math.PI * 0.02 ** 4 / 32,
+          torsion: { constantM4: Math.PI * 0.02 ** 4 / 32 },
+        },
+        engineeringInputs: {
+          material: {
+            yieldStrengthMpa: 250,
+            tensileStrengthMpa: 410,
+            elasticModulusGpa: 200,
+            source: "+supplier sheet",
+          },
+          practical: {
+            environment: "indoor-dry",
+            corrosionAssessment: "conditional",
+          },
+        },
+        engineeringSummary: {
+          status: "within-entered-limit",
+          outputs: {
+            worstUtilization: 0.5,
+            eulerFlexuralBucklingForceN: 100_000,
+            deflection: { deflectionM: 0.001 },
+          },
+          warnings: ["=untrusted warning"],
+        },
       },
     ],
   });
 
   assert.match(csv, /"'=malicious"/);
   assert.match(csv, /"'\+danger"/);
+  assert.match(csv, /"Area A \(m2\)"/);
+  assert.match(csv, /"Entered yield\/Euler screens ≤ 1\.0"/);
+  assert.match(csv, /"'\+supplier sheet"/);
+  assert.match(csv, /"'=untrusted warning"/);
 });
 
 test("export filenames are portable and bounded", () => {

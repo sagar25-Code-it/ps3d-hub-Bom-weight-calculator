@@ -215,6 +215,288 @@
             </details>
           </section>
 
+          <section class="form-step engineering-step" aria-labelledby="engineering-step-title">
+            <div class="step-heading">
+              <span class="step-number" aria-hidden="true">4</span>
+              <div>
+                <h3 id="engineering-step-title">Engineering screen <span class="optional-label">Optional</span></h3>
+                <p>Add sourced material properties, simple load cases, and practical selection notes.</p>
+              </div>
+            </div>
+
+            <div class="engineering-provenance" role="note">
+              <strong>Screening only</strong>
+              <p>These inputs do not create a code-compliant design. Use properties for the actual grade, condition,
+                product form, and temperature; verify loads, restraints, combinations, and limits with the project engineer.</p>
+            </div>
+
+            <div class="engineering-disclosures">
+              <details class="advanced-panel engineering-disclosure">
+                <summary>
+                  <span>Material properties</span>
+                  <small>Strength, stiffness &amp; provenance</small>
+                </summary>
+                <fieldset class="engineering-fieldset">
+                  <legend class="visually-hidden">Optional material properties</legend>
+                  <p class="engineering-section-note" id="material-properties-help">Leave unknown values blank. Density
+                    references elsewhere in this tool are not evidence of mechanical properties.</p>
+                  <div class="field-grid three-col engineering-input-grid">
+                    <div>
+                      <label class="field-label" for="yield-strength">Yield strength <span>(MPa)</span></label>
+                      <input class="control numeric" id="yield-strength" type="number" min="0" max="100000"
+                        step="any" inputmode="decimal" placeholder="e.g. 250"
+                        aria-describedby="material-properties-help yield-strength-error">
+                      <p class="field-error" id="yield-strength-error" hidden></p>
+                    </div>
+                    <div>
+                      <label class="field-label" for="tensile-strength">Ultimate tensile strength <span>(MPa)</span></label>
+                      <input class="control numeric" id="tensile-strength" type="number" min="0" max="100000"
+                        step="any" inputmode="decimal" placeholder="e.g. 410"
+                        aria-describedby="material-properties-help tensile-strength-error">
+                      <p class="field-error" id="tensile-strength-error" hidden></p>
+                    </div>
+                    <div>
+                      <label class="field-label" for="elastic-modulus">Elastic modulus <span>(GPa)</span></label>
+                      <input class="control numeric" id="elastic-modulus" type="number" min="0.001" max="10000"
+                        step="any" inputmode="decimal" placeholder="e.g. 200"
+                        aria-describedby="material-properties-help elastic-modulus-error">
+                      <p class="field-error" id="elastic-modulus-error" hidden></p>
+                    </div>
+                    <div>
+                      <label class="field-label" for="poisson-ratio">Poisson ratio <span>(unitless)</span></label>
+                      <input class="control numeric" id="poisson-ratio" type="number" min="-0.999" max="0.499"
+                        step="any" inputmode="decimal" placeholder="e.g. 0.30"
+                        aria-describedby="material-properties-help poisson-ratio-error">
+                      <p class="field-error" id="poisson-ratio-error" hidden></p>
+                    </div>
+                    <div>
+                      <label class="field-label" for="elongation">Elongation <span>(%)</span></label>
+                      <input class="control numeric" id="elongation" type="number" min="0" max="1000"
+                        step="any" inputmode="decimal" placeholder="e.g. 23"
+                        aria-describedby="material-properties-help elongation-error">
+                      <p class="field-error" id="elongation-error" hidden></p>
+                    </div>
+                    <div>
+                      <label class="field-label" for="hardness-value">Hardness value</label>
+                      <input class="control numeric" id="hardness-value" type="number" min="0" max="100000"
+                        step="any" inputmode="decimal" placeholder="e.g. 120"
+                        aria-describedby="material-properties-help hardness-value-error">
+                      <p class="field-error" id="hardness-value-error" hidden></p>
+                    </div>
+                    <div>
+                      <label class="field-label" for="hardness-scale">Hardness scale</label>
+                      <select class="control" id="hardness-scale"
+                        aria-describedby="material-properties-help hardness-scale-error">
+                        <option value="">Not specified</option>
+                        <option value="HBW">HBW — Brinell</option>
+                        <option value="HV">HV — Vickers</option>
+                        <option value="HRC">HRC — Rockwell C</option>
+                        <option value="HRB">HRB — Rockwell B</option>
+                        <option value="Shore A">Shore A</option>
+                        <option value="Shore D">Shore D</option>
+                        <option value="Other">Other documented scale</option>
+                      </select>
+                      <p class="field-error" id="hardness-scale-error" hidden></p>
+                    </div>
+                    <div>
+                      <label class="field-label" for="property-condition">Condition / temper</label>
+                      <input class="control" id="property-condition" type="text" maxlength="120"
+                        placeholder="e.g. normalized, T6, annealed"
+                        aria-describedby="material-properties-help property-condition-error">
+                      <p class="field-error" id="property-condition-error" hidden></p>
+                    </div>
+                    <div>
+                      <label class="field-label" for="property-source">Property source</label>
+                      <input class="control" id="property-source" type="text" maxlength="240"
+                        placeholder="MTC, datasheet, drawing or standard clause"
+                        aria-describedby="material-properties-help property-source-error">
+                      <p class="field-error" id="property-source-error" hidden></p>
+                    </div>
+                  </div>
+                </fieldset>
+              </details>
+
+              <details class="advanced-panel engineering-disclosure">
+                <summary>
+                  <span>Loads &amp; serviceability</span>
+                  <small>Demand inputs for simple screening</small>
+                </summary>
+                <fieldset class="engineering-fieldset">
+                  <legend class="visually-hidden">Optional loads and serviceability inputs</legend>
+                  <p class="engineering-section-note" id="loads-serviceability-help">Use characteristic or design
+                    actions consistently. Axis directions, restraints, load combinations, local effects, and code factors
+                    remain the engineer's responsibility.</p>
+                  <div class="field-grid three-col engineering-input-grid">
+                    <div>
+                      <label class="field-label" for="axial-load">Axial compression <span>(kN; magnitude)</span></label>
+                      <input class="control numeric" id="axial-load" type="number" min="0" step="any" inputmode="decimal"
+                        placeholder="e.g. 25" aria-describedby="loads-serviceability-help axial-load-error">
+                      <p class="field-error" id="axial-load-error" hidden></p>
+                    </div>
+                    <div>
+                      <label class="field-label" for="bending-moment-x">Moment about x-x <span>(kN·m; magnitude)</span></label>
+                      <input class="control numeric" id="bending-moment-x" type="number" min="0" step="any" inputmode="decimal"
+                        placeholder="e.g. 4.5" aria-describedby="loads-serviceability-help bending-moment-x-error">
+                      <p class="field-error" id="bending-moment-x-error" hidden></p>
+                    </div>
+                    <div>
+                      <label class="field-label" for="bending-moment-y">Moment about y-y <span>(kN·m; magnitude)</span></label>
+                      <input class="control numeric" id="bending-moment-y" type="number" min="0" step="any" inputmode="decimal"
+                        placeholder="e.g. 1.2" aria-describedby="loads-serviceability-help bending-moment-y-error">
+                      <p class="field-error" id="bending-moment-y-error" hidden></p>
+                    </div>
+                    <div>
+                      <label class="field-label" for="torque">Torque <span>(kN·m; magnitude)</span></label>
+                      <input class="control numeric" id="torque" type="number" min="0" step="any" inputmode="decimal"
+                        placeholder="e.g. 0.8" aria-describedby="loads-serviceability-help torque-error">
+                      <p class="field-error" id="torque-error" hidden></p>
+                    </div>
+                    <div>
+                      <label class="field-label" for="column-length">Column length <span>(m)</span></label>
+                      <input class="control numeric" id="column-length" type="number" min="0.000001" max="100000"
+                        step="any" inputmode="decimal" placeholder="e.g. 3"
+                        aria-describedby="loads-serviceability-help column-length-error">
+                      <p class="field-error" id="column-length-error" hidden></p>
+                    </div>
+                    <div>
+                      <label class="field-label" for="effective-length-factor">Effective length factor <span>(K)</span></label>
+                      <input class="control numeric" id="effective-length-factor" type="number" min="0.01" max="100"
+                        step="any" inputmode="decimal" placeholder="e.g. 1.0"
+                        aria-describedby="loads-serviceability-help effective-length-factor-error">
+                      <p class="field-error" id="effective-length-factor-error" hidden></p>
+                    </div>
+                    <div>
+                      <label class="field-label" for="deflection-case">Deflection case</label>
+                      <select class="control" id="deflection-case"
+                        aria-describedby="loads-serviceability-help deflection-case-error">
+                        <option value="">Not specified</option>
+                        <option value="simply-supported-point">Simply supported — centre point load</option>
+                        <option value="simply-supported-udl">Simply supported — uniform load</option>
+                        <option value="cantilever-point">Cantilever — end point load</option>
+                        <option value="cantilever-udl">Cantilever — uniform load</option>
+                      </select>
+                      <p class="field-error" id="deflection-case-error" hidden></p>
+                    </div>
+                    <div>
+                      <label class="field-label" for="deflection-axis">Deflection axis</label>
+                      <select class="control" id="deflection-axis"
+                        aria-describedby="loads-serviceability-help deflection-axis-error">
+                        <option value="x">x-x axis</option>
+                        <option value="y">y-y axis</option>
+                      </select>
+                      <p class="field-error" id="deflection-axis-error" hidden></p>
+                    </div>
+                    <div>
+                      <label class="field-label" for="deflection-load">Deflection load</label>
+                      <div class="control-combo">
+                        <input class="control numeric" id="deflection-load" type="number" step="any"
+                          inputmode="decimal" placeholder="e.g. 2.5"
+                          aria-describedby="loads-serviceability-help deflection-load-error">
+                        <select class="control unit-control" id="deflection-load-unit"
+                          aria-label="Deflection load unit"
+                          aria-describedby="loads-serviceability-help deflection-load-unit-error">
+                          <option value="kN">kN</option>
+                          <option value="kN/m">kN/m</option>
+                        </select>
+                      </div>
+                      <p class="field-error" id="deflection-load-error" hidden></p>
+                      <p class="field-error" id="deflection-load-unit-error" hidden></p>
+                    </div>
+                    <div>
+                      <label class="field-label" for="deflection-span">Deflection span <span>(m)</span></label>
+                      <input class="control numeric" id="deflection-span" type="number" min="0.000001" max="100000"
+                        step="any" inputmode="decimal" placeholder="e.g. 2.4"
+                        aria-describedby="loads-serviceability-help deflection-span-error">
+                      <p class="field-error" id="deflection-span-error" hidden></p>
+                    </div>
+                  </div>
+                </fieldset>
+              </details>
+
+              <details class="advanced-panel engineering-disclosure">
+                <summary>
+                  <span>Practical selection</span>
+                  <small>Environment, fabrication &amp; sourcing</small>
+                </summary>
+                <fieldset class="engineering-fieldset">
+                  <legend class="visually-hidden">Optional practical material selection assessment</legend>
+                  <p class="engineering-section-note" id="practical-selection-help">These are user-entered planning
+                    assessments, not automatic material certifications. Record the basis and verify with the supplier,
+                    fabricator, coating specialist, and project specification.</p>
+                  <div class="field-grid two-col engineering-input-grid practical-grid">
+                    <div>
+                      <label class="field-label" for="design-environment">Design environment</label>
+                      <select class="control" id="design-environment"
+                        aria-describedby="practical-selection-help design-environment-error">
+                        <option value="">Not specified</option>
+                        <option value="indoor-dry">Indoor / dry</option>
+                        <option value="outdoor">Outdoor / atmospheric</option>
+                        <option value="wet-marine">Wet / marine / chloride exposure</option>
+                        <option value="chemical">Chemical / process exposure</option>
+                        <option value="elevated-temperature">Elevated temperature</option>
+                        <option value="low-temperature">Low temperature</option>
+                        <option value="other">Other / project-specific</option>
+                      </select>
+                      <p class="field-error" id="design-environment-error" hidden></p>
+                    </div>
+                    <div>
+                      <label class="field-label" for="corrosion-assessment">Corrosion assessment</label>
+                      <select class="control" id="corrosion-assessment"
+                        aria-describedby="practical-selection-help corrosion-assessment-error">
+                        <option value="">Not assessed</option>
+                        <option value="favourable">Favourable for stated environment</option>
+                        <option value="conditional">Conditional — protection or review required</option>
+                        <option value="unfavourable">Unfavourable without mitigation</option>
+                        <option value="not-assessed">Not assessed / recorded as open</option>
+                      </select>
+                      <p class="field-error" id="corrosion-assessment-error" hidden></p>
+                    </div>
+                    <div>
+                      <label class="field-label" for="fabrication-assessment">Fabrication assessment</label>
+                      <select class="control" id="fabrication-assessment"
+                        aria-describedby="practical-selection-help fabrication-assessment-error">
+                        <option value="">Not assessed</option>
+                        <option value="straightforward">Straightforward for planned process</option>
+                        <option value="process-dependent">Process / condition dependent</option>
+                        <option value="specialist">Specialist review required</option>
+                        <option value="not-assessed">Not assessed / recorded as open</option>
+                      </select>
+                      <p class="field-error" id="fabrication-assessment-error" hidden></p>
+                    </div>
+                    <div>
+                      <label class="field-label" for="availability-assessment">Availability assessment</label>
+                      <select class="control" id="availability-assessment"
+                        aria-describedby="practical-selection-help availability-assessment-error">
+                        <option value="">Not assessed</option>
+                        <option value="in-stock">In stock</option>
+                        <option value="limited">Limited availability / lead time check</option>
+                        <option value="made-to-order">Made to order</option>
+                        <option value="supplier-quoted">Supplier quoted</option>
+                        <option value="discontinued">Discontinued / unavailable</option>
+                        <option value="not-assessed">Not assessed / recorded as open</option>
+                      </select>
+                      <p class="field-error" id="availability-assessment-error" hidden></p>
+                    </div>
+                    <div class="field-span-two">
+                      <label class="field-label" for="practical-source">Assessment source</label>
+                      <input class="control" id="practical-source" type="text" maxlength="240"
+                        placeholder="Supplier quote, coating schedule, WPS, project specification…"
+                        aria-describedby="practical-selection-help practical-source-error">
+                      <p class="field-error" id="practical-source-error" hidden></p>
+                    </div>
+                    <div class="field-span-two">
+                      <label class="field-label" for="practical-notes">Practical notes</label>
+                      <textarea class="control engineering-notes" id="practical-notes" rows="3" maxlength="1000"
+                        placeholder="Record constraints, treatments, fabrication route, stock form, or follow-up actions."
+                        aria-describedby="practical-selection-help practical-notes-error"></textarea>
+                      <p class="field-error" id="practical-notes-error" hidden></p>
+                    </div>
+                  </div>
+                </fieldset>
+              </details>
+            </div>
+          </section>
+
           <div class="error-summary" id="calculator-errors" role="alert" hidden>
             <strong>Check these inputs:</strong>
             <ul></ul>
@@ -222,7 +504,7 @@
 
           <div class="form-actions">
             <button class="button primary-button" id="calculate-button" type="submit">
-              Calculate theoretical mass
+              Calculate mass &amp; optional screening
             </button>
             <span class="keyboard-hint">Press Enter to calculate</span>
           </div>
@@ -236,7 +518,8 @@
               </div>
               <p class="eyebrow">Result panel</p>
               <h2>Ready when your inputs are.</h2>
-              <p>The result will include nominal mass, planning range, volume, formula, density source, and assumptions.</p>
+              <p>The result will include traceable mass evidence. Complete Step 4 to also screen section properties,
+                simple loads, serviceability, and practical selection notes.</p>
             </div>
 
             <div class="result-content" id="result-content" hidden>
@@ -280,6 +563,32 @@
                   <strong id="result-cost">—</strong>
                 </div>
               </div>
+
+              <section class="engineering-output-panel" id="section-properties-panel" aria-labelledby="section-properties-title" hidden>
+                <div class="engineering-output-heading">
+                  <div>
+                    <p class="eyebrow">Idealized geometry</p>
+                    <h3 id="section-properties-title">Section properties</h3>
+                  </div>
+                  <span class="state-badge neutral">Screening data</span>
+                </div>
+                <div class="engineering-result-grid" id="section-properties-grid"></div>
+                <p class="engineering-output-note" id="section-properties-note"></p>
+              </section>
+
+              <section class="engineering-output-panel" id="engineering-screening-panel"
+                aria-labelledby="engineering-screening-title" hidden>
+                <div class="engineering-output-heading">
+                  <div>
+                    <p class="eyebrow">Optional demand screen</p>
+                    <h3 id="engineering-screening-title">Engineering screening</h3>
+                  </div>
+                  <span class="state-badge neutral" id="engineering-status">Not evaluated</span>
+                </div>
+                <div class="engineering-result-grid" id="engineering-screening-grid"></div>
+                <ul class="engineering-warning-list" id="engineering-warnings"></ul>
+                <div class="engineering-practical" id="engineering-practical"></div>
+              </section>
 
               <div class="evidence-panel">
                 <div class="evidence-row">
@@ -478,8 +787,8 @@
         <div>
           <p class="eyebrow">Methodology</p>
           <h1>See how the number is built.</h1>
-          <p class="page-intro">This workbench keeps the simple relationship visible: material volume × density = theoretical
-            mass. It also explains where a reference is strong, where it is only indicative, and what must be verified.</p>
+          <p class="page-intro">This workbench keeps mass, gross-section geometry, and optional elastic screening traceable.
+            It explains where a result is exact for the idealized model, where it is approximate, and what must be verified.</p>
         </div>
       </div>
 
@@ -516,6 +825,40 @@
         </article>
 
         <article class="card method-card">
+          <p class="eyebrow">Section geometry</p>
+          <h2>Area, stiffness, bending &amp; buckling geometry</h2>
+          <p>The calculator reports centroidal A, Ix, Iy, Ixy, principal inertias, elastic section moduli for both extreme
+            fibres, and radii of gyration. It uses S = I / c and r = √(I / A). Unsymmetric sections retain coupled-axis
+            behavior instead of assuming the entered axes are principal.</p>
+        </article>
+
+        <article class="card method-card">
+          <p class="eyebrow">Torsion</p>
+          <h2>Jp and Jt are deliberately separate</h2>
+          <p>The polar area moment Jp = Ix + Iy is reported as geometry. Saint-Venant Jt governs free-warping elastic twist
+            θ = TL / (GJt) and is calculated only by a shape-appropriate exact or stated thin-wall model. Jp is never
+            substituted for Jt except where they are equal for circular sections.</p>
+        </article>
+
+        <article class="card method-card">
+          <p class="eyebrow">Optional demand screen</p>
+          <h2>Simple elastic checks, with exclusions visible</h2>
+          <p>User-entered compression and biaxial moment produce a gross-section normal-stress envelope. Sourced E enables
+            Euler flexural and four elementary beam-deflection cases; E and Poisson ratio enable free-warping twist where
+            Jt is supported. These results exclude code resistance factors, load combinations, local and lateral-torsional
+            buckling, connections, fatigue, shear interaction, imperfections, and project acceptance limits.</p>
+        </article>
+
+        <article class="card method-card">
+          <p class="eyebrow">Mechanical evidence</p>
+          <h2>Properties are entered, never guessed from density</h2>
+          <p>Yield or proof strength, UTS, E, Poisson ratio, elongation, and hardness with its scale are optional
+            user/supplier evidence. Record product form, condition or temper, temperature, direction, specimen basis,
+            and source. UTS, hardness, and elongation are shown for selection context; they are not converted into an
+            automatic allowable.</p>
+        </article>
+
+        <article class="card method-card">
           <p class="eyebrow">Units</p>
           <h2>One SI calculation core</h2>
           <p>Metric and imperial inputs are converted to metres before any geometry formula runs. Mass is stored in kilograms and
@@ -529,10 +872,11 @@
             <p class="eyebrow">Authoritative starting points</p>
             <h2 id="source-title">Standards &amp; technical sources</h2>
           </div>
-          <span class="state-badge neutral">Reviewed 28 Jul 2026</span>
+          <span class="state-badge neutral">Reviewed 29 Jul 2026</span>
         </div>
-        <p class="source-intro">These sources support the calculation method, unit language, standard-section approach, and selected
-          reference values. A project-specific drawing, active standard, supplier table, MTC, or measured value takes priority.</p>
+        <p class="source-intro">These sources support the calculation method, test-property language, corrosion classification,
+          standard-section approach, and selected reference values. A project-specific drawing, active standard, supplier
+          table, MTC, qualified test result, or measured value takes priority.</p>
         <div class="source-list" id="source-list"></div>
       </section>
 

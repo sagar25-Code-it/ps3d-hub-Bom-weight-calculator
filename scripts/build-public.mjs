@@ -19,8 +19,10 @@ const rootFiles = [
 const JavaScriptFiles = [
   "app.js",
   "engine.js",
+  "engineering.js",
   "export.js",
   "materials.js",
+  "section-properties.js",
   "shapes.js",
   "storage.js",
 ];
